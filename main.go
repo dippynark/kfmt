@@ -3,29 +3,39 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/dippynark/config-cleaver/discovery"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 const (
 	inputDirFlag  = "input-dir"
 	outputDirFlag = "output-dir"
+	discoveryFlag = "discovery"
 
-	configSeparator         = "---\n"
-	defaultDefaultNamespace = "default"
+	configSeparator = "---\n"
+
+	defaultFilePerms      = 0644
+	defaultDirectoryPerms = 0755
 )
 
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	InputDirs []string
-	OutputDir string
+	kubeconfig string
+	inputDirs  []string
+	outputDir  string
+	discovery  bool
 }
 
 func main() {
@@ -39,8 +49,10 @@ func main() {
 			helper.CheckErr(err)
 		},
 	}
-	cmd.Flags().StringArrayVarP(&o.InputDirs, inputDirFlag, string([]rune(inputDirFlag)[1]), []string{}, "the directory containing hydrated configs")
-	cmd.Flags().StringVarP(&o.OutputDir, outputDirFlag, string([]rune(outputDirFlag)[1]), "", "the output directory")
+	cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", "", "Path to a KUBECONFIG file used to lookup discovery information")
+	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[1]), []string{}, "the directory containing hydrated configs")
+	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[1]), "", "the output directory")
+	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[1]), false, "use discovery")
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -50,15 +62,34 @@ func main() {
 
 func (o *Options) Run() error {
 
-	if len(o.InputDirs) == 0 {
+	if len(o.inputDirs) == 0 {
 		return errors.Errorf("--%s is not set", inputDirFlag)
 	}
-	if o.OutputDir == "" {
+	if o.outputDir == "" {
 		return errors.Errorf("--%s is not set", outputDirFlag)
 	}
 
+	// Discovery
+	var inspector discovery.ResourceInspector
+	if o.discovery {
+		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
+		if err != nil {
+			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
+		}
+		inspector, err = discovery.NewAPIServerResourceInspector(restcfg)
+		if err != nil {
+			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
+		}
+	} else {
+		var err error
+		inspector, err = discovery.NewLocalResourceInspector()
+		if err != nil {
+			log.Fatalf("Failed to construct local resource inspector: %v", err)
+		}
+	}
+
 	var yamlFiles []string
-	for _, inputDir := range o.InputDirs {
+	for _, inputDir := range o.inputDirs {
 		files, err := listYAMLFiles(inputDir)
 		if err != nil {
 			return err
@@ -68,7 +99,7 @@ func (o *Options) Run() error {
 
 	// Move each YAML file into output directory structure
 	for _, yamlFile := range yamlFiles {
-		err := moveFile(yamlFile, o.OutputDir)
+		err := moveFile(yamlFile, o.outputDir, inspector)
 		if err != nil {
 			return err
 		}
@@ -101,7 +132,7 @@ func listYAMLFiles(inputDir string) ([]string, error) {
 }
 
 // moveFile moves the input file into the right place in the output structure
-func moveFile(inputFile, outputDir string) error {
+func moveFile(inputFile, outputDir string, inspector discovery.ResourceInspector) error {
 
 	// Separate input file into individual configs
 	configs, err := splitFile(inputFile)
@@ -111,7 +142,7 @@ func moveFile(inputFile, outputDir string) error {
 
 	// Move each config into the right location
 	for _, config := range configs {
-		err = moveConfig(config, outputDir)
+		err = moveConfig(config, outputDir, inspector)
 		if err != nil {
 			return err
 		}
@@ -123,7 +154,7 @@ func moveFile(inputFile, outputDir string) error {
 	return nil
 }
 
-func moveConfig(inputConfig, outputDir string) error {
+func moveConfig(inputConfig, outputDir string, inspector discovery.ResourceInspector) error {
 
 	node, err := yaml.Parse(inputConfig)
 	if err != nil {
@@ -145,26 +176,43 @@ func moveConfig(inputConfig, outputDir string) error {
 		return errors.Wrap(err, "failed to get kind")
 	}
 
+	apiVersion, err := getAPIVersion(node)
+	if err != nil {
+		return errors.Wrap(err, "failed to get apiVersion")
+	}
+
 	// Generate destination file name
-	isClusterScoped := strings.HasPrefix(kind, "Cluster") ||
-		(kind == "CustomResourceDefinition") ||
-		(kind == "Namespace")
+	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
+	isNamespaced, err := inspector.IsNamespaced(gvk)
+	if err != nil {
+		return err
+	}
+	/*isClusterScoped := strings.HasPrefix(kind, "Cluster") ||
+	(kind == "CustomResourceDefinition") ||
+	(kind == "Namespace")*/
+	isClusterScoped := !isNamespaced
 	var outputFile string
 	if isClusterScoped {
+		if namespace != "" {
+			return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
+		}
 		outputFile = filepath.Join(outputDir, "cluster", pluralise(strings.ToLower(kind)), name+".yaml")
 	} else {
+		if namespace == "" {
+			// TODO: use default namespace from kubeconfig
+			namespace = corev1.NamespaceDefault
+		}
 		outputFile = filepath.Join(outputDir, "namespaces", namespace, name+"-"+strings.ToLower(kind)+".yaml")
-		// Set namespace field in config
 	}
 
 	// Create destination directory
-	err = os.MkdirAll(filepath.Dir(outputFile), 0755)
+	err = os.MkdirAll(filepath.Dir(outputFile), defaultDirectoryPerms)
 	if err != nil {
 		return err
 	}
 
 	// Create destination file
-	err = ioutil.WriteFile(outputFile, []byte(inputConfig), 0644)
+	err = ioutil.WriteFile(outputFile, []byte(inputConfig), defaultFilePerms)
 	if err != nil {
 		return err
 	}
@@ -173,7 +221,7 @@ func moveConfig(inputConfig, outputDir string) error {
 	if !isClusterScoped {
 		namespaceFile := filepath.Join(outputDir, "cluster", "namespaces", namespace+".yaml")
 		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
-			err = os.MkdirAll(filepath.Dir(namespaceFile), 0755)
+			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
 			if err != nil {
 				return err
 			}
@@ -184,7 +232,7 @@ metadata:
   name: %s
 
 `, namespace)
-			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), 0644)
+			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), defaultFilePerms)
 			if err != nil {
 				return err
 			}
@@ -198,11 +246,6 @@ func getNamespace(node *yaml.RNode) (string, error) {
 	namespace, err := getStringField(node, "metadata", "namespace")
 	if err != nil {
 		return "", err
-	}
-
-	if namespace == "" {
-		// TODO: use default namespace from kubeconfig
-		namespace = defaultDefaultNamespace
 	}
 
 	return namespace, nil
@@ -229,6 +272,19 @@ func getKind(node *yaml.RNode) (string, error) {
 
 	if kind == "" {
 		return "", errors.New("kind is empty")
+	}
+
+	return kind, nil
+}
+
+func getAPIVersion(node *yaml.RNode) (string, error) {
+	kind, err := getStringField(node, "apiVersion")
+	if err != nil {
+		return "", err
+	}
+
+	if kind == "" {
+		return "", errors.New("apiVersion is empty")
 	}
 
 	return kind, nil
