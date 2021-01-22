@@ -20,7 +20,8 @@ Management](https://cloud.google.com/anthos/config-management) sync configs from
 a Kubernetes cluster. kfmt allows you to take the hydrated configs to be synced and reformat them
 into a canonical format which these GitOps tools can then be pointed at. When changes are made to
 these configs, having them formatted in this canonical format makes it easier for a human to review
-the changes that are going to be made to cluster. The canonical format looks as follows:
+the changes that are going to be made to the cluster and ensures there are no clashes. The canonical
+format looks as follows:
 
 ```sh
 # Directory to be synced
