@@ -31,6 +31,7 @@ replace (
 )
 
 require (
+	github.com/bradfitz/slice v0.0.0-20180809154707-2b758aa73013 // indirect
 	github.com/jenkins-x/jx-helpers/v3 v3.0.68 // indirect
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.20.2

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bradfitz/slice"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -26,7 +27,7 @@ func main() {
 	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}] = false
 	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}] = false
 
-	file, err := os.OpenFile("discovery/local_discovery.go", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	file, err := os.OpenFile(os.Args[len(os.Args)-1], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -34,9 +35,25 @@ func main() {
 	file.WriteString(fmt.Sprintf("package discovery\n\n"))
 	file.WriteString(fmt.Sprintf("import \"k8s.io/apimachinery/pkg/runtime/schema\"\n\n"))
 	file.WriteString(fmt.Sprintf("var resources = map[schema.GroupVersionKind]bool{\n"))
-	for gvk, namespaced := range gvkNamespaced {
-		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", gvk.Group, gvk.Version, gvk.Kind, strconv.FormatBool(namespaced)))
+
+	var keys []schema.GroupVersionKind
+	for k := range gvkNamespaced {
+		keys = append(keys, k)
 	}
+	slice.Sort(keys[:], func(i, j int) bool {
+		if keys[i].Group != keys[j].Group {
+			return keys[i].Group < keys[j].Group
+		}
+		if keys[i].Version != keys[j].Version {
+			return keys[i].Version < keys[j].Version
+		}
+		return keys[i].Kind < keys[j].Kind
+	})
+
+	for _, k := range keys {
+		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", k.Group, k.Version, k.Kind, strconv.FormatBool(gvkNamespaced[k])))
+	}
+
 	file.WriteString(fmt.Sprintf("}"))
 
 	if err := file.Close(); err != nil {
