@@ -20,9 +20,12 @@ import (
 )
 
 const (
-	inputDirFlag  = "input-dir"
-	outputDirFlag = "output-dir"
-	discoveryFlag = "discovery"
+	inputDirFlag   = "input-dir"
+	outputDirFlag  = "output-dir"
+	discoveryFlag  = "discovery"
+	kubeconfigFlag = "kubeconfig"
+
+	kubeconfigEnvVar = "KUBECONFIG"
 
 	configSeparator = "---\n"
 
@@ -43,25 +46,25 @@ func main() {
 	o := &Options{}
 
 	cmd := &cobra.Command{
-		Use:   "cleave",
-		Short: "Cleaves configs into gitops structure",
+		Use:   "kfmt",
+		Short: "kfmt organises Kubernetes configs into a canonical structure.",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Run()
 			helper.CheckErr(err)
 		},
 	}
 
-	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[1]), []string{}, "Directory containing hydrated configs")
-	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[1]), "", "Output directory")
-	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[1]), false, "Use API Server for discovery")
+	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[0]), []string{}, "Directory containing hydrated configs")
+	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[0]), "", "Output directory")
+	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
-	if kubeconfigEnvVar := os.Getenv("KUBECONFIG"); kubeconfigEnvVar != "" {
-		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", kubeconfigEnvVar, "Absolute path to the kubeconfig file used for discovery")
+	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
+		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[1]), kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
 	} else if home := homedir.HomeDir(); home != "" {
-		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[1]), filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
 	} else {
-		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), "", "Absolute path to the kubeconfig file used for discovery")
 	}
 
 	if err := cmd.Execute(); err != nil {
