@@ -47,7 +47,7 @@ func main() {
 
 	cmd := &cobra.Command{
 		Use:   "kfmt",
-		Short: "kfmt organises Kubernetes configs into a canonical structure.",
+		Short: "kfmt organises Kubernetes configs into a canonical format.",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Run()
 			helper.CheckErr(err)

@@ -16,7 +16,7 @@ Inspiration is taken from a number of other tools:
 ## Usage
 
 ```text
-kfmt organises Kubernetes configs into a canonical structure.
+kfmt organises Kubernetes configs into a canonical format.
 
 Usage:
   kfmt [flags]
