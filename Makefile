@@ -11,10 +11,6 @@ build:
 	mkdir -p $(BIN_DIR)
 	go build -o $(BIN_DIR)/kfmt .
 
-run:
-	rm -rf output
-	$(BIN_DIR)/kfmt --input-dir input --output-dir output --discovery
-
 test:
 	rm -rf $(INPUT_DIR) $(OUTPUT_DIR)
 	mkdir -p $(INPUT_DIR)

@@ -28,3 +28,9 @@ Flags:
   -u, --kubeconfig string       Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -o, --output-dir string       Output directory
 ```
+
+## Test
+
+```sh
+make generate build test
+```
