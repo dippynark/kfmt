@@ -521,6 +521,14 @@ func splitFile(inputFile string) ([]string, error) {
 			configString = strings.TrimPrefix(configString, "\n")
 		}
 
+		// Remove newline suffixes
+		for {
+			if !strings.HasSuffix(configString, "\n") {
+				break
+			}
+			configString = strings.TrimSuffix(configString, "\n")
+		}
+
 		// Create buffer to build config
 		buf := strings.Builder{}
 

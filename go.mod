@@ -32,9 +32,12 @@ replace (
 
 require (
 	github.com/bradfitz/slice v0.0.0-20180809154707-2b758aa73013 // indirect
-	github.com/jenkins-x/jx-helpers/v3 v3.0.68 // indirect
+	github.com/jenkins-x/jx-helpers/v3 v3.0.68
+	github.com/pkg/errors v0.9.1
+	github.com/spf13/cobra v1.1.1
+	k8s.io/api v0.20.2
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.20.2
 	k8s.io/kubernetes v1.20.2 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.10.6 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.10.6
 )
