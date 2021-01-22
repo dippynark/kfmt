@@ -4,7 +4,8 @@ INPUT_DIR = $(CURDIR)/input
 OUTPUT_DIR = $(CURDIR)/output
 
 generate:
-	go run hack/discovery-gen.go -- $(CURDIR)/discovery/local_discovery.go
+	ls api || git clone https://github.com/kubernetes/api
+	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/discovery/local_discovery.go
 	go fmt $(CURDIR)/discovery/local_discovery.go
 
 build:

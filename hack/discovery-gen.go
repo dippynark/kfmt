@@ -135,7 +135,7 @@ func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
 
 	gvkNamespaced := map[schema.GroupVersionKind]bool{}
 
-	err := filepath.Walk("/Users/luke/go/src/k8s.io/api",
+	err := filepath.Walk(os.Args[len(os.Args)-2],
 		func(fileName string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
