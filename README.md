@@ -13,6 +13,39 @@ Inspiration is taken from a number of other tools:
 - [jx gitops helmfile
   move](https://github.com/jenkins-x/jx-gitops/blob/master/docs/cmd/jx-gitops_helmfile_move.md)
 
+## Use Case
+
+GitOps tools such as [Flux](https://github.com/fluxcd/flux) and [Anthos Config
+Management](https://cloud.google.com/anthos/config-management) sync configs from a Git repository to
+a Kubernetes cluster. kfmt allows you to take the hydrated configs to be synced and reformat them
+into a canonical format which these GitOps tools can then be pointed at. When changes are made to
+these configs, having them formatted in this canonical format makes it easier for a human to review
+the changes that are going to be made to cluster. The canonical format looks as follows:
+
+```sh
+# Directory to be synced
+output
+  # Directory containing non-namespaced resources
+  cluster
+    # Each non-namespaced resource in moved into a directory named after its kind
+    clusterrolebinding
+      # Files are named after the resource name and kind
+      cert-manager-cainjector.yaml
+      cert-manager-controller-certificates.yaml
+      ...
+    clusterroles
+    namespaces
+    ...
+  # Directory containing namespaced resources
+  namespaces
+    # Each Namespace is given its own directory
+    cert-manager
+      cert-manager-cainjector-deployment.yaml
+      ...
+    kube-system
+    ...
+```
+
 ## Usage
 
 ```text
@@ -34,3 +67,8 @@ Flags:
 ```sh
 make generate build test
 ```
+
+## TODO
+
+- Add flag to copy common resources into all Namespaces (e.g. ResourceQuota)
+- Include group in canonical name to differentiate different resources with the same kind

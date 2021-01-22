@@ -14,5 +14,6 @@ build:
 test:
 	rm -rf $(INPUT_DIR) $(OUTPUT_DIR)
 	mkdir -p $(INPUT_DIR)
+	# Download cert-manager manifests
 	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml
 	$(BIN_DIR)/kfmt --input-dir $(INPUT_DIR) --output-dir $(OUTPUT_DIR) --discovery
