@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -49,10 +50,19 @@ func main() {
 			helper.CheckErr(err)
 		},
 	}
-	cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", "", "Path to a KUBECONFIG file used to lookup discovery information")
-	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[1]), []string{}, "the directory containing hydrated configs")
-	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[1]), "", "the output directory")
-	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[1]), false, "use discovery")
+
+	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[1]), []string{}, "Directory containing hydrated configs")
+	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[1]), "", "Output directory")
+	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[1]), false, "Use API Server for discovery")
+
+	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
+	if kubeconfigEnvVar := os.Getenv("KUBECONFIG"); kubeconfigEnvVar != "" {
+		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", kubeconfigEnvVar, "Absolute path to the kubeconfig file used for discovery")
+	} else if home := homedir.HomeDir(); home != "" {
+		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
+	} else {
+		cmd.Flags().StringVar(&o.kubeconfig, "kubeconfig", "", "Absolute path to the kubeconfig file used for discovery")
+	}
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -69,25 +79,6 @@ func (o *Options) Run() error {
 		return errors.Errorf("--%s is not set", outputDirFlag)
 	}
 
-	// Discovery
-	var inspector discovery.ResourceInspector
-	if o.discovery {
-		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
-		if err != nil {
-			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
-		}
-		inspector, err = discovery.NewAPIServerResourceInspector(restcfg)
-		if err != nil {
-			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
-		}
-	} else {
-		var err error
-		inspector, err = discovery.NewLocalResourceInspector()
-		if err != nil {
-			log.Fatalf("Failed to construct local resource inspector: %v", err)
-		}
-	}
-
 	var yamlFiles []string
 	for _, inputDir := range o.inputDirs {
 		files, err := listYAMLFiles(inputDir)
@@ -97,9 +88,35 @@ func (o *Options) Run() error {
 		yamlFiles = append(yamlFiles, files...)
 	}
 
+	// Discovery
+	var resourceInspector discovery.ResourceInspector
+	if o.discovery {
+		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
+		if err != nil {
+			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
+		}
+		resourceInspector, err = discovery.NewAPIServerResourceInspector(restcfg)
+		if err != nil {
+			log.Fatalf("Failed to construct APIServer backed resource resource inspector: %v", err)
+		}
+	} else {
+		resourceInspector = discovery.NewLocalResourceInspector()
+	}
+
+	// Find local resources defined by CRDs
+	for _, yamlFile := range yamlFiles {
+		resources, err := findResources(yamlFile)
+		if err != nil {
+			log.Fatalf("Failed to find CRDs in %s: %v", yamlFile, err)
+		}
+		for gvk, namespaced := range resources {
+			resourceInspector.AddResource(gvk, namespaced)
+		}
+	}
+
 	// Move each YAML file into output directory structure
 	for _, yamlFile := range yamlFiles {
-		err := moveFile(yamlFile, o.outputDir, inspector)
+		err := moveFile(yamlFile, o.outputDir, resourceInspector)
 		if err != nil {
 			return err
 		}
@@ -131,8 +148,75 @@ func listYAMLFiles(inputDir string) ([]string, error) {
 	return files, err
 }
 
+// findResources finds resources defined as CRDs to add to discovery
+func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
+	resources := map[schema.GroupVersionKind]bool{}
+
+	// Separate input file into individual configs
+	configs, err := splitFile(inputFile)
+	if err != nil {
+		return resources, err
+	}
+
+	// Look for a resource definition in each config
+	for _, config := range configs {
+
+		node, err := yaml.Parse(config)
+		if err != nil {
+			return resources, err
+		}
+
+		kind, err := getKind(node)
+		if err != nil {
+			return resources, err
+		}
+
+		if kind != "CustomResourceDefinition" {
+			continue
+		}
+
+		resourceGroup, err := getCRDGroup(node)
+		if err != nil {
+			return resources, err
+		}
+
+		resourceKind, err := getCRDKind(node)
+		if err != nil {
+			return resources, err
+		}
+
+		resourceScope, err := getCRDScope(node)
+		if err != nil {
+			return resources, err
+		}
+		namespaced := false
+		if resourceScope == "Namespaced" {
+			namespaced = true
+		}
+
+		resourceVersions, err := getCRDVersions(node)
+		if err != nil {
+			return resources, err
+		}
+
+		for _, resourceVersion := range resourceVersions {
+			gvk := schema.GroupVersionKind{
+				Group:   resourceGroup,
+				Version: resourceVersion,
+				Kind:    resourceKind,
+			}
+			if _, ok := resources[gvk]; ok {
+				return resources, fmt.Errorf("resource already exists: %s", gvk.String())
+			}
+			resources[gvk] = namespaced
+		}
+	}
+
+	return resources, nil
+}
+
 // moveFile moves the input file into the right place in the output structure
-func moveFile(inputFile, outputDir string, inspector discovery.ResourceInspector) error {
+func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceInspector) error {
 
 	// Separate input file into individual configs
 	configs, err := splitFile(inputFile)
@@ -142,7 +226,7 @@ func moveFile(inputFile, outputDir string, inspector discovery.ResourceInspector
 
 	// Move each config into the right location
 	for _, config := range configs {
-		err = moveConfig(config, outputDir, inspector)
+		err = moveConfig(config, outputDir, resourceInspector)
 		if err != nil {
 			return err
 		}
@@ -154,7 +238,7 @@ func moveFile(inputFile, outputDir string, inspector discovery.ResourceInspector
 	return nil
 }
 
-func moveConfig(inputConfig, outputDir string, inspector discovery.ResourceInspector) error {
+func moveConfig(inputConfig, outputDir string, resourceInspector discovery.ResourceInspector) error {
 
 	node, err := yaml.Parse(inputConfig)
 	if err != nil {
@@ -183,7 +267,7 @@ func moveConfig(inputConfig, outputDir string, inspector discovery.ResourceInspe
 
 	// Generate destination file name
 	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
-	isNamespaced, err := inspector.IsNamespaced(gvk)
+	isNamespaced, err := resourceInspector.IsNamespaced(gvk)
 	if err != nil {
 		return err
 	}
@@ -288,6 +372,63 @@ func getAPIVersion(node *yaml.RNode) (string, error) {
 	}
 
 	return kind, nil
+}
+
+func getCRDGroup(node *yaml.RNode) (string, error) {
+	group, err := getStringField(node, "spec", "group")
+	if err != nil {
+		return "", err
+	}
+
+	if group == "" {
+		return "", errors.New("group is empty")
+	}
+
+	return group, nil
+}
+
+func getCRDKind(node *yaml.RNode) (string, error) {
+	kind, err := getStringField(node, "spec", "names", "kind")
+	if err != nil {
+		return "", err
+	}
+
+	if kind == "" {
+		return "", errors.New("kind is empty")
+	}
+
+	return kind, nil
+}
+
+func getCRDScope(node *yaml.RNode) (string, error) {
+	scope, err := getStringField(node, "spec", "scope")
+	if err != nil {
+		return "", err
+	}
+
+	if scope == "" {
+		return "", errors.New("scope is empty")
+	}
+
+	return scope, nil
+}
+
+func getCRDVersions(node *yaml.RNode) ([]string, error) {
+	valueNode, err := node.Pipe(yaml.Lookup("spec", "versions"))
+	if err != nil {
+		return nil, err
+	}
+
+	versions, err := valueNode.ElementValues("name")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(versions) == 0 {
+		return nil, errors.New("no versions found")
+	}
+
+	return versions, nil
 }
 
 func getStringField(node *yaml.RNode, fields ...string) (string, error) {

@@ -8,4 +8,6 @@ type ResourceInspector interface {
 	// IsNamespaced returns true if the given GroupVersionKind is for a
 	// namespace-scoped object.
 	IsNamespaced(schema.GroupVersionKind) (bool, error)
+	// AddResource adds a GVK namespaced mapping to discovery
+	AddResource(schema.GroupVersionKind, bool)
 }

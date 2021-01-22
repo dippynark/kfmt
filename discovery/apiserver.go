@@ -16,7 +16,8 @@ import (
 // It relies on a Kubernetes apiserver that has discovery information for all
 // inputted resource types.
 type APIServerResourceInspector struct {
-	mapper *restmapper.DeferredDiscoveryRESTMapper
+	localResourceInspector *LocalResourceInspector
+	mapper                 *restmapper.DeferredDiscoveryRESTMapper
 }
 
 func NewAPIServerResourceInspector(cfg *rest.Config) (*APIServerResourceInspector, error) {
@@ -28,17 +29,31 @@ func NewAPIServerResourceInspector(cfg *rest.Config) (*APIServerResourceInspecto
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cl))
 
 	return &APIServerResourceInspector{
-		mapper: mapper,
+		mapper:                 mapper,
+		localResourceInspector: NewLocalResourceInspector(),
 	}, nil
 }
 
 func (a *APIServerResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool, error) {
+	// First check local discovery...
+	namespaced, err := a.localResourceInspector.IsNamespaced(gvk)
+	// Ignore error if local discovery is unsuccessful
+	// TODO: use multi-error struct
+	if err == nil {
+		return namespaced, nil
+	}
+
+	// ...now check API Server discovery
 	mapping, err := a.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
 		return false, fmt.Errorf("could not find REST mapping for resource %v: %w", gvk.String(), err)
 	}
 
 	return mapping.Scope.Name() == meta.RESTScopeNameNamespace, nil
+}
+
+func (a *APIServerResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {
+	a.localResourceInspector.AddResource(gvk, namespaced)
 }
 
 var _ ResourceInspector = &APIServerResourceInspector{}
