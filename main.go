@@ -147,7 +147,8 @@ func (o *Options) createMissingNamespaces(namespaces []string) error {
 				return err
 			}
 
-			namespaceConfig := fmt.Sprintf(`apiVersion: v1
+			namespaceConfig := fmt.Sprintf(`---
+apiVersion: v1
 kind: Namespace
 metadata:
   name: %s
