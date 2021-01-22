@@ -117,14 +117,48 @@ func (o *Options) Run() error {
 		}
 	}
 
+	// Collect used namespaces
+	var namespaces []string
+
 	// Move each YAML file into output directory structure
 	for _, yamlFile := range yamlFiles {
-		err := moveFile(yamlFile, o.outputDir, resourceInspector)
+		err := moveFile(yamlFile, o.outputDir, resourceInspector, &namespaces)
 		if err != nil {
 			return err
 		}
 	}
 
+	// Create missing Namespace configs
+	if err := o.createMissingNamespaces(namespaces); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// createMissingNamespaces creates missing Namespaces configs
+func (o *Options) createMissingNamespaces(namespaces []string) error {
+	for _, namespace := range namespaces {
+		namespaceFile := filepath.Join(o.outputDir, "cluster", "namespaces", namespace+".yaml")
+
+		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
+			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
+			if err != nil {
+				return err
+			}
+
+			namespaceConfig := fmt.Sprintf(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+
+`, namespace)
+			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), defaultFilePerms)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -219,7 +253,7 @@ func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 }
 
 // moveFile moves the input file into the right place in the output structure
-func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceInspector) error {
+func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	// Separate input file into individual configs
 	configs, err := splitFile(inputFile)
@@ -229,7 +263,7 @@ func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceI
 
 	// Move each config into the right location
 	for _, config := range configs {
-		err = moveConfig(config, outputDir, resourceInspector)
+		err = moveConfig(config, outputDir, resourceInspector, namespaces)
 		if err != nil {
 			return err
 		}
@@ -241,7 +275,7 @@ func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceI
 	return nil
 }
 
-func moveConfig(inputConfig, outputDir string, resourceInspector discovery.ResourceInspector) error {
+func moveConfig(inputConfig, outputDir string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	node, err := yaml.Parse(inputConfig)
 	if err != nil {
@@ -274,9 +308,7 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 	if err != nil {
 		return err
 	}
-	/*isClusterScoped := strings.HasPrefix(kind, "Cluster") ||
-	(kind == "CustomResourceDefinition") ||
-	(kind == "Namespace")*/
+
 	isClusterScoped := !isNamespaced
 	var outputFile string
 	if isClusterScoped {
@@ -289,6 +321,7 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 			// TODO: use default namespace from kubeconfig
 			namespace = corev1.NamespaceDefault
 		}
+		*namespaces = append(*namespaces, namespace)
 		outputFile = filepath.Join(outputDir, "namespaces", namespace, name+"-"+strings.ToLower(kind)+".yaml")
 	}
 
@@ -302,28 +335,6 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 	err = ioutil.WriteFile(outputFile, []byte(inputConfig), defaultFilePerms)
 	if err != nil {
 		return err
-	}
-
-	// Create missing namespace
-	if !isClusterScoped {
-		namespaceFile := filepath.Join(outputDir, "cluster", "namespaces", namespace+".yaml")
-		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
-			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
-			if err != nil {
-				return err
-			}
-
-			namespaceConfig := fmt.Sprintf(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: %s
-
-`, namespace)
-			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), defaultFilePerms)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
