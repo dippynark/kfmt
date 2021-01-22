@@ -62,10 +62,14 @@ Flags:
   -o, --output-dir string       Output directory
 ```
 
-## Test
+## Example
+
+The following sequence of targets builds kfmt, downloads the
+[cert-manager](https://github.com/jetstack/cert-manager) release manifests and formats them into the
+canonical format.
 
 ```sh
-make generate build test
+make build test
 ```
 
 ## TODO
