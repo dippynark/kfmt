@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	inputDirFlag    = "input-dir"
-	outputDirFlag   = "output-dir"
-	discoveryFlag   = "discovery"
-	kubeconfigFlag  = "kubeconfig"
-	removeInputFlag = "remove-input"
+	inputDirFlag        = "input-dir"
+	outputDirFlag       = "output-dir"
+	discoveryFlag       = "discovery"
+	kubeconfigFlag      = "kubeconfig"
+	removeInputFlag     = "remove-input"
+	filterKindGroupFlag = "filter-kind-group"
 
 	kubeconfigEnvVar = "KUBECONFIG"
 
@@ -40,11 +41,12 @@ const (
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	inputDirs   []string
-	outputDir   string
-	discovery   bool
-	kubeconfig  string
-	removeInput bool
+	inputDirs          []string
+	outputDir          string
+	discovery          bool
+	kubeconfig         string
+	removeInput        bool
+	filteredKindGroups []string
 }
 
 func main() {
@@ -64,6 +66,7 @@ func main() {
 	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[0]), "", "Output directory")
 	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
 	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
+	cmd.Flags().StringArrayVarP(&o.filteredKindGroups, filterKindGroupFlag, string([]rune(filterKindGroupFlag)[0]), []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
@@ -295,6 +298,25 @@ func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.Res
 		return err
 	}
 
+	apiVersion, err := getAPIVersion(node)
+	if err != nil {
+		return errors.Wrap(err, "failed to get apiVersion")
+	}
+
+	kind, err := getKind(node)
+	if err != nil {
+		return errors.Wrap(err, "failed to get kind")
+	}
+
+	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
+
+	// Ignore filtered group.kinds
+	for _, filteredKindGroup := range o.filteredKindGroups {
+		if gvk.GroupKind().String() == filteredKindGroup {
+			return nil
+		}
+	}
+
 	namespace, err := getNamespace(node)
 	if err != nil {
 		return errors.Wrap(err, "failed to get namespace")
@@ -305,18 +327,6 @@ func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.Res
 		return errors.Wrap(err, "failed to get name")
 	}
 
-	kind, err := getKind(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get kind")
-	}
-
-	apiVersion, err := getAPIVersion(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get apiVersion")
-	}
-
-	// Generate destination file name
-	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
 	isNamespaced, err := resourceInspector.IsNamespaced(gvk)
 	if err != nil {
 		return err
@@ -339,7 +349,7 @@ func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.Res
 			// TODO: use default namespace from kubeconfig
 			namespace = corev1.NamespaceDefault
 		}
-		// Add to know namespaces
+		// Add to known namespaces
 		*namespaces = append(*namespaces, namespace)
 		// Define output file
 		fileName := strings.ToLower(kind) + "-" + name + ".yaml"

@@ -56,11 +56,13 @@ Usage:
   kfmt [flags]
 
 Flags:
-  -d, --discovery               Use API Server for discovery
-  -h, --help                    Help for kfmt
-  -i, --input-dir stringArray   Directories containing hydrated configs
-  -u, --kubeconfig string       Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
-  -o, --output-dir string       Output directory
+  -d, --discovery                       Use API Server for discovery
+  -f, --filter-kind-group stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
+  -h, --help                            Help for kfmt
+  -i, --input-dir stringArray           Directories containing hydrated configs
+  -k, --kubeconfig string               Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
+  -o, --output-dir string               Output directory
+  -r, --remove-input                    Remove processed input files
 ```
 
 ## Example
