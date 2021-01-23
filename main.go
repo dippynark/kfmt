@@ -29,6 +29,9 @@ const (
 
 	configSeparator = "---\n"
 
+	nonNamespacedDirectory = "cluster"
+	namespacedDirectory    = "namespaces"
+
 	defaultFilePerms      = 0644
 	defaultDirectoryPerms = 0755
 )
@@ -36,10 +39,10 @@ const (
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	kubeconfig string
 	inputDirs  []string
 	outputDir  string
 	discovery  bool
+	kubeconfig string
 }
 
 func main() {
@@ -140,7 +143,7 @@ func (o *Options) Run() error {
 // createMissingNamespaces creates missing Namespaces configs
 func (o *Options) createMissingNamespaces(namespaces []string) error {
 	for _, namespace := range namespaces {
-		namespaceFile := filepath.Join(o.outputDir, "cluster", "namespaces", namespace+".yaml")
+		namespaceFile := filepath.Join(o.outputDir, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
 		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
 			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
@@ -317,14 +320,25 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 		if namespace != "" {
 			return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
 		}
-		outputFile = filepath.Join(outputDir, "cluster", pluralise(strings.ToLower(kind)), name+".yaml")
+		subdirectory := pluralise(strings.ToLower(kind))
+		// Define output file
+		if !resourceInspector.IsCoreGroup(gvk.Group) {
+			subdirectory = gvk.Group + "-" + subdirectory
+		}
+		outputFile = filepath.Join(outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
 	} else {
 		if namespace == "" {
 			// TODO: use default namespace from kubeconfig
 			namespace = corev1.NamespaceDefault
 		}
+		// Add to know namespaces
 		*namespaces = append(*namespaces, namespace)
-		outputFile = filepath.Join(outputDir, "namespaces", namespace, name+"-"+strings.ToLower(kind)+".yaml")
+		// Define output file
+		fileName := strings.ToLower(kind) + "-" + name + ".yaml"
+		if !resourceInspector.IsCoreGroup(gvk.Group) {
+			fileName = gvk.Group + "-" + fileName
+		}
+		outputFile = filepath.Join(outputDir, namespacedDirectory, namespace, fileName)
 	}
 
 	// Create destination directory

@@ -13,7 +13,7 @@ type LocalResourceInspector struct {
 
 func NewLocalResourceInspector() *LocalResourceInspector {
 	return &LocalResourceInspector{
-		resources: resources,
+		resources: copyMap(coreResources),
 	}
 }
 
@@ -26,8 +26,26 @@ func (l *LocalResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool
 	return namespaced, nil
 }
 
+func (l *LocalResourceInspector) IsCoreGroup(group string) bool {
+	for gvk, _ := range coreResources {
+		if group == gvk.Group {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *LocalResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {
 	l.resources[gvk] = namespaced
 }
 
 var _ ResourceInspector = &LocalResourceInspector{}
+
+func copyMap(m map[schema.GroupVersionKind]bool) map[schema.GroupVersionKind]bool {
+	cp := make(map[schema.GroupVersionKind]bool)
+	for k, v := range m {
+		cp[k] = v
+	}
+
+	return cp
+}

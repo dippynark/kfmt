@@ -76,4 +76,3 @@ make build test
 ## TODO
 
 - Add flag to copy common resources into all Namespaces (e.g. ResourceQuota)
-- Include group in canonical name to differentiate different resources with the same kind

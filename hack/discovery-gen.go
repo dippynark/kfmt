@@ -34,7 +34,7 @@ func main() {
 
 	file.WriteString(fmt.Sprintf("package discovery\n\n"))
 	file.WriteString(fmt.Sprintf("import \"k8s.io/apimachinery/pkg/runtime/schema\"\n\n"))
-	file.WriteString(fmt.Sprintf("var resources = map[schema.GroupVersionKind]bool{\n"))
+	file.WriteString(fmt.Sprintf("var coreResources = map[schema.GroupVersionKind]bool{\n"))
 
 	var keys []schema.GroupVersionKind
 	for k := range gvkNamespaced {
