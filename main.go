@@ -462,6 +462,24 @@ func getCRDScope(node *yaml.RNode) (string, error) {
 }
 
 func getCRDVersions(node *yaml.RNode) ([]string, error) {
+	apiVersion, err := getAPIVersion(node)
+	if err != nil {
+		return nil, err
+	}
+
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	if gv.Version == "v1alpha1" || gv.Version == "v1beta1" {
+		version, err := getStringField(node, "spec", "version")
+		if err != nil {
+			return nil, err
+		}
+		return []string{version}, nil
+	}
+
 	valueNode, err := node.Pipe(yaml.Lookup("spec", "versions"))
 	if err != nil {
 		return nil, err
