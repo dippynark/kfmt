@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	inputDirFlag   = "input-dir"
-	outputDirFlag  = "output-dir"
-	discoveryFlag  = "discovery"
-	kubeconfigFlag = "kubeconfig"
+	inputDirFlag    = "input-dir"
+	outputDirFlag   = "output-dir"
+	discoveryFlag   = "discovery"
+	kubeconfigFlag  = "kubeconfig"
+	removeInputFlag = "remove-input"
 
 	kubeconfigEnvVar = "KUBECONFIG"
 
@@ -39,10 +40,11 @@ const (
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	inputDirs  []string
-	outputDir  string
-	discovery  bool
-	kubeconfig string
+	inputDirs   []string
+	outputDir   string
+	discovery   bool
+	kubeconfig  string
+	removeInput bool
 }
 
 func main() {
@@ -61,6 +63,7 @@ func main() {
 	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[0]), []string{}, "Directories containing hydrated configs")
 	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[0]), "", "Output directory")
 	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
+	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
@@ -126,7 +129,7 @@ func (o *Options) Run() error {
 
 	// Move each YAML file into output directory structure
 	for _, yamlFile := range yamlFiles {
-		err := moveFile(yamlFile, o.outputDir, resourceInspector, &namespaces)
+		err := o.moveFile(yamlFile, resourceInspector, &namespaces)
 		if err != nil {
 			return err
 		}
@@ -258,7 +261,7 @@ func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 }
 
 // moveFile moves the input file into the right place in the output structure
-func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
+func (o *Options) moveFile(inputFile string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	// Separate input file into individual configs
 	configs, err := splitFile(inputFile)
@@ -268,19 +271,24 @@ func moveFile(inputFile, outputDir string, resourceInspector discovery.ResourceI
 
 	// Move each config into the right location
 	for _, config := range configs {
-		err = moveConfig(config, outputDir, resourceInspector, namespaces)
+		err = o.moveConfig(config, resourceInspector, namespaces)
 		if err != nil {
 			return err
 		}
 	}
 
-	// TODO: implement remove-input flag
-	// rm inputFile
+	// Remove processed file
+	if o.removeInput {
+		err = os.Remove(inputFile)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func moveConfig(inputConfig, outputDir string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
+func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	node, err := yaml.Parse(inputConfig)
 	if err != nil {
@@ -325,7 +333,7 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 		if !resourceInspector.IsCoreGroup(gvk.Group) {
 			subdirectory = gvk.Group + "-" + subdirectory
 		}
-		outputFile = filepath.Join(outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
+		outputFile = filepath.Join(o.outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
 	} else {
 		if namespace == "" {
 			// TODO: use default namespace from kubeconfig
@@ -338,7 +346,7 @@ func moveConfig(inputConfig, outputDir string, resourceInspector discovery.Resou
 		if !resourceInspector.IsCoreGroup(gvk.Group) {
 			fileName = gvk.Group + "-" + fileName
 		}
-		outputFile = filepath.Join(outputDir, namespacedDirectory, namespace, fileName)
+		outputFile = filepath.Join(o.outputDir, namespacedDirectory, namespace, fileName)
 	}
 
 	// Create destination directory
