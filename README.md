@@ -28,7 +28,7 @@ format looks as follows:
 output
   # Directory containing non-namespaced resources
   cluster
-    # Each non-namespaced resource in moved into a directory named after its kind
+    # Each non-namespaced resource is moved into a directory named after its kind
     clusterrolebinding
       # Files are named after the resource name and kind
       cert-manager-cainjector.yaml
@@ -57,8 +57,8 @@ Usage:
 
 Flags:
   -d, --discovery               Use API Server for discovery
-  -h, --help                    help for kfmt
-  -i, --input-dir stringArray   Directory containing hydrated configs
+  -h, --help                    Help for kfmt
+  -i, --input-dir stringArray   Directories containing hydrated configs
   -u, --kubeconfig string       Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -o, --output-dir string       Output directory
 ```

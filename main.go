@@ -54,7 +54,8 @@ func main() {
 		},
 	}
 
-	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[0]), []string{}, "Directory containing hydrated configs")
+	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
+	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[0]), []string{}, "Directories containing hydrated configs")
 	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[0]), "", "Output directory")
 	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
 
