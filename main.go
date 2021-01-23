@@ -269,14 +269,14 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	// Separate input file into individual configs
 	configs, err := splitFile(inputFile)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to split input file %s", inputFile)
 	}
 
 	// Move each config into the right location
 	for _, config := range configs {
 		err = o.moveConfig(config, resourceInspector, namespaces)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
 	}
 
@@ -284,7 +284,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	if o.removeInput {
 		err = os.Remove(inputFile)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to remove input file %s", inputFile)
 		}
 	}
 
