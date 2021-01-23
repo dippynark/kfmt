@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dippynark/config-cleaver/discovery"
+	"github.com/dippynark/kfmt/discovery"
 	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

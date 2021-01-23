@@ -1,4 +1,4 @@
-module github.com/dippynark/config-cleaver
+module github.com/dippynark/kfmt
 
 go 1.15
 
