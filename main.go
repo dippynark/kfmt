@@ -61,9 +61,9 @@ func main() {
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[1]), kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
 	} else if home := homedir.HomeDir(); home != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[1]), filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
 	} else {
 		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), "", "Absolute path to the kubeconfig file used for discovery")
 	}
