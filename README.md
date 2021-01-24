@@ -56,6 +56,7 @@ Usage:
   kfmt [flags]
 
 Flags:
+  -c, --clean                           Remove namespace field from non-namespaced resources
   -d, --discovery                       Use API Server for discovery
   -f, --filter-kind-group stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
   -h, --help                            Help for kfmt
