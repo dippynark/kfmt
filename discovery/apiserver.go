@@ -52,8 +52,8 @@ func (a *APIServerResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (
 	return mapping.Scope.Name() == meta.RESTScopeNameNamespace, nil
 }
 
-func (a *APIServerResourceInspector) IsCoreCollision(kind, group string) bool {
-	return a.localResourceInspector.IsCoreCollision(kind, group)
+func (a *APIServerResourceInspector) IsCoreGroup(group string) bool {
+	return a.localResourceInspector.IsCoreGroup(group)
 }
 
 func (a *APIServerResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {

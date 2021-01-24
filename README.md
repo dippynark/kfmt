@@ -79,3 +79,4 @@ make build test
 ## TODO
 
 - Add flag to copy common resources into all Namespaces (e.g. ResourceQuota)
+- Accept input from stdin

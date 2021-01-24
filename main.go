@@ -350,9 +350,9 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 		}
 
 		subdirectory := pluralise(strings.ToLower(kind))
-		// Prefix with group if core collision
-		if resourceInspector.IsCoreCollision(gvk.Kind, gvk.Group) {
-			subdirectory = gvk.Group + "-" + subdirectory
+		// Prefix with group if core
+		if !resourceInspector.IsCoreGroup(gvk.Group) {
+			subdirectory = pluralise(strings.ToLower(kind)) + "." + gvk.Group
 		}
 		outputFile = filepath.Join(o.outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
 	} else {
@@ -364,9 +364,9 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 		*namespaces = append(*namespaces, namespace)
 
 		fileName := strings.ToLower(kind) + "-" + name + ".yaml"
-		// Prefix with group if core collision
-		if resourceInspector.IsCoreCollision(gvk.Kind, gvk.Group) {
-			fileName = gvk.Group + "-" + fileName
+		// Prefix with group if core
+		if !resourceInspector.IsCoreGroup(gvk.Group) {
+			fileName = strings.ToLower(kind) + "." + gvk.Group + "-" + name + ".yaml"
 		}
 		outputFile = filepath.Join(o.outputDir, namespacedDirectory, namespace, fileName)
 	}
