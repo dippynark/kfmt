@@ -10,6 +10,6 @@ type ResourceInspector interface {
 	IsNamespaced(schema.GroupVersionKind) (bool, error)
 	// AddResource adds a GVK namespaced mapping to discovery
 	AddResource(schema.GroupVersionKind, bool)
-	// IsCoreGroup returns true if group is core
-	IsCoreGroup(string) bool
+	// IsCoreCollision returns true if kind.group clashes with core resource
+	IsCoreCollision(kind, group string) bool
 }

@@ -26,13 +26,20 @@ func (l *LocalResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool
 	return namespaced, nil
 }
 
-func (l *LocalResourceInspector) IsCoreGroup(group string) bool {
+func (l *LocalResourceInspector) IsCoreCollision(kind, group string) bool {
+	isCoreGroup := false
+	isCoreKind := false
+
 	for gvk, _ := range coreResources {
 		if group == gvk.Group {
-			return true
+			isCoreGroup = true
+		}
+		if kind == gvk.Kind {
+			isCoreKind = true
 		}
 	}
-	return false
+
+	return isCoreKind && !isCoreGroup
 }
 
 func (l *LocalResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {
