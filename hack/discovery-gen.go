@@ -22,10 +22,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Manually add CustomResourceDefinition
-	// TOOD: find the real definition
+	// Manually add CustomResourceDefinition and APIService
+	// TOOD: find the real definitions
 	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}] = false
 	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}] = false
+	gvkNamespaced[schema.GroupVersionKind{Group: "apiregistration.k8s.io", Version: "v1beta1", Kind: "APIService"}] = false
 
 	file, err := os.OpenFile(os.Args[len(os.Args)-1], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -26,6 +27,7 @@ const (
 	kubeconfigFlag      = "kubeconfig"
 	removeInputFlag     = "remove-input"
 	filterKindGroupFlag = "filter-kind-group"
+	cleanFlag           = "clean"
 
 	kubeconfigEnvVar = "KUBECONFIG"
 
@@ -47,6 +49,7 @@ type Options struct {
 	kubeconfig         string
 	removeInput        bool
 	filteredKindGroups []string
+	clean              bool
 }
 
 func main() {
@@ -67,6 +70,7 @@ func main() {
 	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
 	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
 	cmd.Flags().StringArrayVarP(&o.filteredKindGroups, filterKindGroupFlag, string([]rune(filterKindGroupFlag)[0]), []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
+	cmd.Flags().BoolVarP(&o.clean, cleanFlag, string([]rune(cleanFlag)[0]), false, "Remove namespace field from non-namespaced resources")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
@@ -200,19 +204,18 @@ func listYAMLFiles(inputDir string) ([]string, error) {
 func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 	resources := map[schema.GroupVersionKind]bool{}
 
-	// Separate input file into individual configs
-	configs, err := splitFile(inputFile)
+	b, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		return resources, err
+	}
+
+	nodes, err := kio.FromBytes(b)
 	if err != nil {
 		return resources, err
 	}
 
 	// Look for a resource definition in each config
-	for _, config := range configs {
-
-		node, err := yaml.Parse(config)
-		if err != nil {
-			return resources, err
-		}
+	for _, node := range nodes {
 
 		kind, err := getKind(node)
 		if err != nil {
@@ -267,14 +270,18 @@ func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 func (o *Options) moveFile(inputFile string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	// Separate input file into individual configs
-	configs, err := splitFile(inputFile)
+	b, err := ioutil.ReadFile(inputFile)
 	if err != nil {
-		return errors.Wrapf(err, "failed to split input file %s", inputFile)
+		return err
+	}
+	nodes, err := kio.FromBytes(b)
+	if err != nil {
+		return err
 	}
 
-	// Move each config into the right location
-	for _, config := range configs {
-		err = o.moveConfig(config, resourceInspector, namespaces)
+	// Put each config into right location
+	for _, node := range nodes {
+		err = o.moveConfig(node, resourceInspector, namespaces)
 		if err != nil {
 			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
@@ -291,12 +298,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	return nil
 }
 
-func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
-
-	node, err := yaml.Parse(inputConfig)
-	if err != nil {
-		return err
-	}
+func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
 
 	apiVersion, err := getAPIVersion(node)
 	if err != nil {
@@ -336,8 +338,17 @@ func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.Res
 	var outputFile string
 	if isClusterScoped {
 		if namespace != "" {
-			return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
+			if o.clean {
+				err = node.SetNamespace("")
+				if err != nil {
+					return err
+				}
+				namespace = ""
+			} else {
+				return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
+			}
 		}
+
 		subdirectory := pluralise(strings.ToLower(kind))
 		// Define output file
 		if !resourceInspector.IsCoreGroup(gvk.Group) {
@@ -366,7 +377,11 @@ func (o *Options) moveConfig(inputConfig string, resourceInspector discovery.Res
 	}
 
 	// Create destination file
-	err = ioutil.WriteFile(outputFile, []byte(inputConfig), defaultFilePerms)
+	s, err := node.String()
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(outputFile, []byte(configSeparator+s), defaultFilePerms)
 	if err != nil {
 		return err
 	}
@@ -442,7 +457,7 @@ func getCRDKind(node *yaml.RNode) (string, error) {
 	}
 
 	if kind == "" {
-		return "", errors.New("kind is empty")
+		return "", errors.New("CRD kind is empty")
 	}
 
 	return kind, nil
@@ -462,24 +477,6 @@ func getCRDScope(node *yaml.RNode) (string, error) {
 }
 
 func getCRDVersions(node *yaml.RNode) ([]string, error) {
-	apiVersion, err := getAPIVersion(node)
-	if err != nil {
-		return nil, err
-	}
-
-	gv, err := schema.ParseGroupVersion(apiVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if gv.Version == "v1alpha1" || gv.Version == "v1beta1" {
-		version, err := getStringField(node, "spec", "version")
-		if err != nil {
-			return nil, err
-		}
-		return []string{version}, nil
-	}
-
 	valueNode, err := node.Pipe(yaml.Lookup("spec", "versions"))
 	if err != nil {
 		return nil, err
@@ -490,11 +487,16 @@ func getCRDVersions(node *yaml.RNode) ([]string, error) {
 		return nil, err
 	}
 
-	if len(versions) == 0 {
-		return nil, errors.New("no versions found")
+	if len(versions) > 0 {
+		return versions, nil
 	}
 
-	return versions, nil
+	version, err := getStringField(node, "spec", "version")
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{version}, nil
 }
 
 func getStringField(node *yaml.RNode, fields ...string) (string, error) {
@@ -540,63 +542,6 @@ func pluralise(lowercaseKind string) string {
 	}
 
 	return lowercaseKind + "s"
-}
-
-// splitFile splits a YAML file by the config separator
-func splitFile(inputFile string) ([]string, error) {
-	var configs []string
-
-	data, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return configs, err
-	}
-	inputData := string(data)
-
-	// Avoid splitting if config separator is not at the start of the line
-	if strings.HasPrefix(inputData, configSeparator) {
-		inputData = "\n" + inputData
-	}
-	configStrings := strings.Split(inputData, "\n"+configSeparator)
-
-	// Generate configs from configStrings
-	for _, configString := range configStrings {
-		// Ignore if config string is only whitespace or comments
-		if isWhitespaceOrComments(configString) {
-			continue
-		}
-
-		// Remove newline prefixes
-		for {
-			if !strings.HasPrefix(configString, "\n") {
-				break
-			}
-			configString = strings.TrimPrefix(configString, "\n")
-		}
-
-		// Remove newline suffixes
-		for {
-			if !strings.HasSuffix(configString, "\n") {
-				break
-			}
-			configString = strings.TrimSuffix(configString, "\n")
-		}
-
-		// Create buffer to build config
-		buf := strings.Builder{}
-
-		// Add separator at the top so that files can be `cat`ed together
-		buf.WriteString(configSeparator)
-
-		// Add sanitised config string
-		buf.WriteString(configString)
-
-		// Add trailing newline
-		buf.WriteString("\n")
-
-		configs = append(configs, buf.String())
-	}
-
-	return configs, nil
 }
 
 func isWhitespaceOrComments(input string) bool {
