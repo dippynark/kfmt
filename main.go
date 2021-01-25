@@ -221,7 +221,6 @@ func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) err
 kind: Namespace
 metadata:
   name: %s
-
 `, namespace)
 			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), defaultFilePerms)
 			if err != nil {
@@ -420,6 +419,7 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 			return err
 		}
 		namespaces := map[string]struct{}{namespace: {}}
+		// TODO: remove annotation after processing
 		namespacesAnnotation, ok := annotations[annotationNamespacesKey]
 		if ok {
 			if namespacesAnnotation == annotationNamespacesAll {
@@ -427,7 +427,7 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 			} else {
 				for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
 					if _, ok := allNamespaces[namespacesAnnotationNamespace]; !ok {
-						// We cannot allow this annotation to create new Namespaces, because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
+						// We cannot allow this annotation to create new Namespaces because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
 						return fmt.Errorf("Namespace \"%s\" not found when processing annotation %s", namespacesAnnotationNamespace, annotationNamespacesKey)
 					}
 					namespaces[namespacesAnnotationNamespace] = struct{}{}
