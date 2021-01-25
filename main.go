@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/kustomize/kyaml/kio"
@@ -141,7 +142,7 @@ func (o *Options) Run() error {
 		}
 
 		// Find used Namespaces
-		newNamespaces, err := findNamespaces(yamlFile)
+		newNamespaces, err := findNamespaces(yamlFile, resourceInspector)
 		if err != nil {
 			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)
 		}
@@ -167,7 +168,7 @@ func (o *Options) Run() error {
 }
 
 // findNamespaces finds used namespaces
-func findNamespaces(inputFile string) (map[string]struct{}, error) {
+func findNamespaces(inputFile string, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
 	namespaces := map[string]struct{}{}
 
 	b, err := ioutil.ReadFile(inputFile)
@@ -185,7 +186,7 @@ func findNamespaces(inputFile string) (map[string]struct{}, error) {
 
 		kind, err := getKind(node)
 		if err != nil {
-			return namespaces, err
+			return namespaces, errors.Wrap(err, "failed to get kind")
 		}
 
 		if kind == "Namespace" {
@@ -196,12 +197,27 @@ func findNamespaces(inputFile string) (map[string]struct{}, error) {
 
 			namespaces[name] = struct{}{}
 		} else {
-			namespace, err := getNamespace(node)
+
+			apiVersion, err := getAPIVersion(node)
+			if err != nil {
+				return namespaces, errors.Wrap(err, "failed to get apiVersion")
+			}
+
+			gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
+
+			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
 			if err != nil {
 				return namespaces, err
 			}
 
-			if namespace != "" {
+			if isNamespaced {
+				namespace, err := getNamespace(node)
+				if err != nil {
+					return namespaces, err
+				}
+				if namespace == "" {
+					namespace = corev1.NamespaceDefault
+				}
 				namespaces[namespace] = struct{}{}
 			}
 		}
@@ -408,6 +424,10 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 		}
 
 		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
+		err = writeNode(outputFile, node)
+		if err != nil {
+			return err
+		}
 	} else {
 		if namespace == "" {
 			// TODO: use default namespace from kubeconfig
@@ -446,28 +466,31 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 			}
 			outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
 			err = writeNode(outputFile, node)
+			if err != nil {
+				return err
+			}
 		}
-	}
-
-	// Create destination directory
-	err = os.MkdirAll(filepath.Dir(outputFile), defaultDirectoryPerms)
-	if err != nil {
-		return err
-	}
-
-	err = writeNode(outputFile, node)
-	if err != nil {
-		return err
 	}
 
 	return nil
 }
 
 func writeNode(fileName string, node *yaml.RNode) error {
+	// https://stackoverflow.com/a/12518877/6180803
+	if _, err := os.Stat(fileName); err == nil {
+		return fmt.Errorf("file already exists: %s", fileName)
+	}
+
 	s, err := node.String()
 	if err != nil {
 		return err
 	}
+
+	err = os.MkdirAll(filepath.Dir(fileName), defaultDirectoryPerms)
+	if err != nil {
+		return err
+	}
+
 	err = ioutil.WriteFile(fileName, []byte(configSeparator+s), defaultFilePerms)
 	if err != nil {
 		return err
