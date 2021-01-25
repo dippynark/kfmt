@@ -66,6 +66,17 @@ Flags:
   -r, --remove-input                    Remove processed input files
 ```
 
+Namespaced resources in any input directory can be annotated as follows:
+
+```
+kfmt.dev/namespaces: namespace1,namespace2,...
+```
+
+The resource will be copied into each named Namespace. Note that each Namespace must be present in
+the configs being processed, either due to a Namespace resource being defined or any Namespaced
+resource being in that Namespace. Alternatively, the special value `*` can be used and the resource
+will be copied into every Namespace.
+
 ## Example
 
 The following sequence of targets builds kfmt, downloads the
@@ -78,5 +89,4 @@ make build test
 
 ## TODO
 
-- Add flag to copy common resources into all Namespaces (e.g. ResourceQuota)
 - Accept input from stdin
