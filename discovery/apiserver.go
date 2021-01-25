@@ -27,10 +27,14 @@ func NewAPIServerResourceInspector(cfg *rest.Config) (*APIServerResourceInspecto
 	}
 
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cl))
+	localResourceInspector, err := NewLocalResourceInspector()
+	if err != nil {
+		return nil, err
+	}
 
 	return &APIServerResourceInspector{
 		mapper:                 mapper,
-		localResourceInspector: NewLocalResourceInspector(),
+		localResourceInspector: localResourceInspector,
 	}, nil
 }
 

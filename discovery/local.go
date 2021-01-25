@@ -1,7 +1,11 @@
 package discovery
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -11,10 +15,20 @@ type LocalResourceInspector struct {
 	resources map[schema.GroupVersionKind]bool
 }
 
-func NewLocalResourceInspector() *LocalResourceInspector {
-	return &LocalResourceInspector{
-		resources: copyMap(coreResources),
+func NewLocalResourceInspector() (*LocalResourceInspector, error) {
+	cachedResources, err := parseCachedAPIResources()
+	if err != nil {
+		return nil, err
 	}
+
+	resources := copyMap(coreResources)
+	for k, v := range cachedResources {
+		resources[k] = v
+	}
+
+	return &LocalResourceInspector{
+		resources: resources,
+	}, nil
 }
 
 func (l *LocalResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool, error) {
@@ -49,4 +63,53 @@ func copyMap(m map[schema.GroupVersionKind]bool) map[schema.GroupVersionKind]boo
 	}
 
 	return cp
+}
+
+func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
+	cachedResources := map[schema.GroupVersionKind]bool{}
+
+	// TODO: allow path to be user-specified
+	inputFile := "api-resources.txt"
+
+	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
+		return cachedResources, nil
+	}
+
+	file, err := os.Open(inputFile)
+	if err != nil {
+		return cachedResources, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		words := strings.Fields(line)
+		if len(words) == 0 {
+			continue
+		}
+		if words[0] == "NAME" {
+			continue
+		}
+
+		gv, err := schema.ParseGroupVersion(words[len(words)-3])
+		if err != nil {
+			return cachedResources, err
+		}
+		namespaced, err := strconv.ParseBool(words[len(words)-2])
+		if err != nil {
+			return cachedResources, err
+		}
+		kind := words[len(words)-1]
+
+		gvk := schema.GroupVersionKind{
+			Group:   gv.Group,
+			Version: gv.Version,
+			Kind:    kind,
+		}
+		cachedResources[gvk] = namespaced
+	}
+
+	return cachedResources, nil
 }

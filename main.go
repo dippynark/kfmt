@@ -118,10 +118,14 @@ func (o *Options) Run() error {
 		}
 		resourceInspector, err = discovery.NewAPIServerResourceInspector(restcfg)
 		if err != nil {
-			log.Fatalf("Failed to construct APIServer backed resource resource inspector: %v", err)
+			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
 		}
 	} else {
-		resourceInspector = discovery.NewLocalResourceInspector()
+		var err error
+		resourceInspector, err = discovery.NewLocalResourceInspector()
+		if err != nil {
+			log.Fatalf("Failed to construct locally backed resource inspector: %v", err)
+		}
 	}
 
 	// Preprocess

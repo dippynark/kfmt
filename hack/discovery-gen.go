@@ -167,25 +167,5 @@ func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
 		return gvkNamespaced, nil
 	}
 
-	// input := "api-resources.txt"
-
-	// 	gv, err := schema.ParseGroupVersion(words[len(words)-3])
-	// 	if err != nil {
-	// 		return gvkNamespaced, nil
-	// 	}
-	// 	namespaced, err := strconv.ParseBool(words[len(words)-2])
-	// 	if err != nil {
-	// 		return gvkNamespaced, err
-	// 	}
-	// 	kind := words[len(words)-1]
-
-	// 	gvk := schema.GroupVersionKind{
-	// 		gv.Group,
-	// 		gv.Version,
-	// 		kind,
-	// 	}
-	// 	gvkNamespaced[gvk] = namespaced
-	// }
-
 	return gvkNamespaced, nil
 }
