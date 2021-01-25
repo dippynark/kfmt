@@ -29,6 +29,10 @@ const (
 	filterKindGroupFlag = "filter-kind-group"
 	cleanFlag           = "clean"
 
+	// Namespaces to copy resource into
+	annotationNamespacesKey = "kfmt.dev/namespaces"
+	annotationNamespacesAll = "*"
+
 	kubeconfigEnvVar = "KUBECONFIG"
 
 	configSeparator = "---\n"
@@ -120,8 +124,10 @@ func (o *Options) Run() error {
 		resourceInspector = discovery.NewLocalResourceInspector()
 	}
 
-	// Find local resources defined by CRDs
+	// Preprocess
+	allNamespaces := map[string]struct{}{}
 	for _, yamlFile := range yamlFiles {
+		// Find local resources defined by CRDs
 		resources, err := findResources(yamlFile)
 		if err != nil {
 			log.Fatalf("Failed to find CRDs in %s: %v", yamlFile, err)
@@ -129,30 +135,80 @@ func (o *Options) Run() error {
 		for gvk, namespaced := range resources {
 			resourceInspector.AddResource(gvk, namespaced)
 		}
-	}
 
-	// Collect used namespaces
-	var namespaces []string
+		// Find used Namespaces
+		newNamespaces, err := findNamespaces(yamlFile)
+		if err != nil {
+			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)
+		}
+		for k, v := range newNamespaces {
+			allNamespaces[k] = v
+		}
+	}
 
 	// Move each YAML file into output directory structure
 	for _, yamlFile := range yamlFiles {
-		err := o.moveFile(yamlFile, resourceInspector, &namespaces)
+		err := o.moveFile(yamlFile, resourceInspector, allNamespaces)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Create missing Namespace configs
-	if err := o.createMissingNamespaces(namespaces); err != nil {
+	if err := o.createMissingNamespaces(allNamespaces); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// createMissingNamespaces creates missing Namespaces configs
-func (o *Options) createMissingNamespaces(namespaces []string) error {
-	for _, namespace := range namespaces {
+// findNamespaces finds used namespaces
+func findNamespaces(inputFile string) (map[string]struct{}, error) {
+	namespaces := map[string]struct{}{}
+
+	b, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		return namespaces, err
+	}
+
+	nodes, err := kio.FromBytes(b)
+	if err != nil {
+		return namespaces, err
+	}
+
+	// Look for namespaces in each config
+	for _, node := range nodes {
+
+		kind, err := getKind(node)
+		if err != nil {
+			return namespaces, err
+		}
+
+		if kind == "Namespace" {
+			name, err := getName(node)
+			if err != nil {
+				return namespaces, err
+			}
+
+			namespaces[name] = struct{}{}
+		} else {
+			namespace, err := getNamespace(node)
+			if err != nil {
+				return namespaces, err
+			}
+
+			if namespace != "" {
+				namespaces[namespace] = struct{}{}
+			}
+		}
+	}
+
+	return namespaces, nil
+}
+
+// createMissingNamespaces creates missing Namespace configs
+func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) error {
+	for namespace := range allNamespaces {
 		namespaceFile := filepath.Join(o.outputDir, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
 		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
@@ -161,8 +217,7 @@ func (o *Options) createMissingNamespaces(namespaces []string) error {
 				return err
 			}
 
-			namespaceConfig := fmt.Sprintf(`---
-apiVersion: v1
+			namespaceConfig := fmt.Sprintf(configSeparator+`apiVersion: v1
 kind: Namespace
 metadata:
   name: %s
@@ -267,7 +322,7 @@ func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 }
 
 // moveFile moves the input file into the right place in the output structure
-func (o *Options) moveFile(inputFile string, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
+func (o *Options) moveFile(inputFile string, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
 	// Separate input file into individual configs
 	b, err := ioutil.ReadFile(inputFile)
@@ -281,7 +336,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 
 	// Put each config into right location
 	for _, node := range nodes {
-		err = o.moveConfig(node, resourceInspector, namespaces)
+		err = o.moveConfig(node, resourceInspector, allNamespaces)
 		if err != nil {
 			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
@@ -298,7 +353,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	return nil
 }
 
-func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.ResourceInspector, namespaces *[]string) error {
+func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
 	apiVersion, err := getAPIVersion(node)
 	if err != nil {
@@ -349,26 +404,45 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 			}
 		}
 
-		subdirectory := pluralise(strings.ToLower(kind))
-		// Prefix with group if core
-		if !resourceInspector.IsCoreGroup(gvk.Group) {
-			subdirectory = pluralise(strings.ToLower(kind)) + "." + gvk.Group
-		}
-		outputFile = filepath.Join(o.outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
+		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
 	} else {
 		if namespace == "" {
 			// TODO: use default namespace from kubeconfig
 			namespace = corev1.NamespaceDefault
+			err = node.SetNamespace(namespace)
+			if err != nil {
+				return err
+			}
 		}
-		// Add to known namespaces
-		*namespaces = append(*namespaces, namespace)
 
-		fileName := strings.ToLower(kind) + "-" + name + ".yaml"
-		// Prefix with group if core
-		if !resourceInspector.IsCoreGroup(gvk.Group) {
-			fileName = strings.ToLower(kind) + "." + gvk.Group + "-" + name + ".yaml"
+		annotations, err := getAnnotations(node)
+		if err != nil {
+			return err
 		}
-		outputFile = filepath.Join(o.outputDir, namespacedDirectory, namespace, fileName)
+		namespaces := map[string]struct{}{namespace: {}}
+		namespacesAnnotation, ok := annotations[annotationNamespacesKey]
+		if ok {
+			if namespacesAnnotation == annotationNamespacesAll {
+				namespaces = allNamespaces
+			} else {
+				for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
+					if _, ok := allNamespaces[namespacesAnnotationNamespace]; !ok {
+						// We cannot allow this annotation to create new Namespaces, because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
+						return fmt.Errorf("Namespace \"%s\" not found when processing annotation %s", namespacesAnnotationNamespace, annotationNamespacesKey)
+					}
+					namespaces[namespacesAnnotationNamespace] = struct{}{}
+				}
+			}
+		}
+
+		for namespace := range namespaces {
+			err = node.SetNamespace(namespace)
+			if err != nil {
+				return err
+			}
+			outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
+			err = writeNode(outputFile, node)
+		}
 	}
 
 	// Create destination directory
@@ -377,17 +451,59 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 		return err
 	}
 
-	// Create destination file
-	s, err := node.String()
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(outputFile, []byte(configSeparator+s), defaultFilePerms)
+	err = writeNode(outputFile, node)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func writeNode(fileName string, node *yaml.RNode) error {
+	s, err := node.String()
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(fileName, []byte(configSeparator+s), defaultFilePerms)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o *Options) getNonNamespacedOutputFile(name string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
+	subdirectory := pluralise(strings.ToLower(gvk.Kind))
+	// Prefix with group if core
+	if !resourceInspector.IsCoreGroup(gvk.Group) {
+		subdirectory = pluralise(strings.ToLower(gvk.Kind)) + "." + gvk.Group
+	}
+	return filepath.Join(o.outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
+}
+
+func (o *Options) getNamespacedOutputFile(name, namespace string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
+	fileName := strings.ToLower(gvk.Kind) + "-" + name + ".yaml"
+	// Prefix with group if core
+	if !resourceInspector.IsCoreGroup(gvk.Group) {
+		fileName = strings.ToLower(gvk.Kind) + "." + gvk.Group + "-" + name + ".yaml"
+	}
+
+	return filepath.Join(o.outputDir, namespacedDirectory, namespace, fileName)
+}
+
+func getAnnotations(node *yaml.RNode) (map[string]string, error) {
+	annotations := map[string]string{}
+
+	valueNode, err := node.Pipe(yaml.Lookup("metadata", "annotations"))
+	if err != nil {
+		return annotations, err
+	}
+
+	m := valueNode.Map()
+	for k, v := range m {
+		annotations[k] = v.(string)
+	}
+
+	return annotations, nil
 }
 
 func getNamespace(node *yaml.RNode) (string, error) {
