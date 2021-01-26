@@ -28,7 +28,8 @@ const (
 	kubeconfigFlag      = "kubeconfig"
 	removeInputFlag     = "remove-input"
 	filterKindGroupFlag = "filter-kind-group"
-	cleanFlag           = "clean"
+	stripFlag           = "strip"
+	commentFlag         = "comment"
 
 	// Namespaces to copy resource into
 	annotationNamespacesKey = "kfmt.dev/namespaces"
@@ -54,7 +55,8 @@ type Options struct {
 	kubeconfig         string
 	removeInput        bool
 	filteredKindGroups []string
-	clean              bool
+	strip              bool
+	comment            bool
 }
 
 func main() {
@@ -75,7 +77,8 @@ func main() {
 	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
 	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
 	cmd.Flags().StringArrayVarP(&o.filteredKindGroups, filterKindGroupFlag, string([]rune(filterKindGroupFlag)[0]), []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
-	cmd.Flags().BoolVarP(&o.clean, cleanFlag, string([]rune(cleanFlag)[0]), false, "Remove namespace field from non-namespaced resources")
+	cmd.Flags().BoolVarP(&o.strip, stripFlag, string([]rune(stripFlag)[0]), false, "Remove namespace field from non-namespaced resources")
+	cmd.Flags().BoolVarP(&o.comment, commentFlag, string([]rune(commentFlag)[0]), false, "Comments output files with relative path of input file")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
@@ -355,7 +358,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 
 	// Put each config into right location
 	for _, node := range nodes {
-		err = o.moveConfig(node, resourceInspector, allNamespaces)
+		err = o.moveConfig(inputFile, node, resourceInspector, allNamespaces)
 		if err != nil {
 			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
@@ -372,7 +375,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	return nil
 }
 
-func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
+func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
 	apiVersion, err := getAPIVersion(node)
 	if err != nil {
@@ -412,7 +415,7 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 	var outputFile string
 	if isClusterScoped {
 		if namespace != "" {
-			if o.clean {
+			if o.strip {
 				err = node.SetNamespace("")
 				if err != nil {
 					return err
@@ -424,7 +427,7 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 		}
 
 		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
-		err = writeNode(outputFile, node)
+		err = o.writeNode(inputFile, outputFile, node)
 		if err != nil {
 			return err
 		}
@@ -465,7 +468,7 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 				return err
 			}
 			outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
-			err = writeNode(outputFile, node)
+			err = o.writeNode(inputFile, outputFile, node)
 			if err != nil {
 				return err
 			}
@@ -475,10 +478,10 @@ func (o *Options) moveConfig(node *yaml.RNode, resourceInspector discovery.Resou
 	return nil
 }
 
-func writeNode(fileName string, node *yaml.RNode) error {
+func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNode) error {
 	// https://stackoverflow.com/a/12518877/6180803
-	if _, err := os.Stat(fileName); err == nil {
-		return fmt.Errorf("file already exists: %s", fileName)
+	if _, err := os.Stat(outputFile); err == nil {
+		return fmt.Errorf("file already exists: %s", outputFile)
 	}
 
 	s, err := node.String()
@@ -486,12 +489,20 @@ func writeNode(fileName string, node *yaml.RNode) error {
 		return err
 	}
 
-	err = os.MkdirAll(filepath.Dir(fileName), defaultDirectoryPerms)
+	err = os.MkdirAll(filepath.Dir(outputFile), defaultDirectoryPerms)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(fileName, []byte(configSeparator+s), defaultFilePerms)
+	relPath, err := filepath.Rel(filepath.Dir(outputFile), inputFile)
+	if err != nil {
+		return err
+	}
+	comment := ""
+	if o.comment {
+		comment = fmt.Sprintf("# Source: %s\n", relPath)
+	}
+	err = ioutil.WriteFile(outputFile, []byte(configSeparator+comment+s), defaultFilePerms)
 	if err != nil {
 		return err
 	}

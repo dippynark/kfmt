@@ -17,6 +17,9 @@ test:
 	mkdir -p $(INPUT_DIR)
 	# Download cert-manager manifests
 	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml
-	$(BIN_DIR)/kfmt --input-dir $(INPUT_DIR) --remove-input --output-dir $(OUTPUT_DIR) --discovery
+	$(BIN_DIR)/kfmt --input-dir $(INPUT_DIR) --remove-input \
+		--output-dir $(OUTPUT_DIR) \
+		--discovery \
+		--comment
 	rmdir $(INPUT_DIR)
 	find $(OUTPUT_DIR)

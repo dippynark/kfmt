@@ -56,7 +56,7 @@ Usage:
   kfmt [flags]
 
 Flags:
-  -c, --clean                           Remove namespace field from non-namespaced resources
+  -c, --comment                         Comments output files with relative path of input file
   -d, --discovery                       Use API Server for discovery
   -f, --filter-kind-group stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
   -h, --help                            Help for kfmt
@@ -64,6 +64,7 @@ Flags:
   -k, --kubeconfig string               Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -o, --output-dir string               Output directory
   -r, --remove-input                    Remove processed input files
+  -s, --strip                           Remove namespace field from non-namespaced resources
 ```
 
 Namespaced resources in any input directory can be annotated as follows:
