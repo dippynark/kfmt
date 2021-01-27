@@ -56,7 +56,7 @@ Usage:
   kfmt [flags]
 
 Flags:
-  -c, --comment                         Comments output files with relative path of input file
+  -c, --comment                         Comment each output file with relative path of corresponding input file
   -d, --discovery                       Use API Server for discovery
   -f, --filter-kind-group stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
   -h, --help                            Help for kfmt

@@ -78,7 +78,7 @@ func main() {
 	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
 	cmd.Flags().StringArrayVarP(&o.filteredKindGroups, filterKindGroupFlag, string([]rune(filterKindGroupFlag)[0]), []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
 	cmd.Flags().BoolVarP(&o.strip, stripFlag, string([]rune(stripFlag)[0]), false, "Remove namespace field from non-namespaced resources")
-	cmd.Flags().BoolVarP(&o.comment, commentFlag, string([]rune(commentFlag)[0]), false, "Comments output files with relative path of input file")
+	cmd.Flags().BoolVarP(&o.comment, commentFlag, string([]rune(commentFlag)[0]), false, "Comment each output file with relative path of corresponding input file")
 
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
