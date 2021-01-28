@@ -53,7 +53,7 @@ spec:
             name: workspace
         steps:
         - name: git-clone
-          image: dippynark/home-environment:v1.0.0
+          image: alpine/git:v2.30.0
           command:
           - /bin/sh
           args:
