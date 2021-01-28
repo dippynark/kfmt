@@ -6,6 +6,7 @@ WORKDIR /workspace
 
 COPY go.mod go.mod
 COPY go.sum go.sum
+
 RUN go mod download
 
 # https://github.com/tektoncd/pipeline/blob/master/docs/auth.md#using-secrets-as-a-non-root-user
