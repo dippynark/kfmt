@@ -18,7 +18,7 @@ spec:
       name: subdirectory
       type: string
     tasks:
-    - name: kaniko-build
+    - name: build
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -42,8 +42,8 @@ spec:
         stepTemplate:
           name: ""
           volumeMounts:
-          - mountPath: /workspace
-            name: workspace
+          - name: workspace
+            mountPath: /workspace
         steps:
         - name: git-clone
           image: alpine/git:v2.30.0
@@ -62,21 +62,54 @@ spec:
             git checkout $(inputs.params.revision);
             echo checked out revision: $(inputs.params.revision) to dir: $(inputs.params.subdirectory)
           workingDir: /workspace
-        - name: kaniko
-          image: gcr.io/kaniko-project/executor:v1.3.0
+        - name: build
+          image: golang:1.15-alpine
+          command:
+          - /bin/sh
           args:
-          - --dockerfile=Dockerfile
-          - --context=dir:///workspace/source
-          - --destination=dippynark/kfmt-build:$(inputs.params.revision)
+          - -ce
+          - |
+            apk add --update make curl
+
+            cd /workspace/source
+            make build test
+          workingDir: /workspace
           volumeMounts:
-          - name: kaniko-secret
-            mountPath: /kaniko/.docker
+          - name: go-pkg-mod
+            mountPath: /go/pkg/mod
         volumes:
         - name: workspace
           emptyDir: {}
-        - name: kaniko-secret
-          secret:
-            secretName: tekton-container-registry-auth
-            items:
-            - key: .dockerconfigjson
-              path: config.json
+        - name: go-pkg-mod
+          hostPath:
+            path: /mnt/ssd/data/go/pkg/mod
+
+
+        # stepTemplate:
+        #   name: ""
+        #   volumeMounts:
+        #   # Mount cannot intersect with WORKDIR of Dockerfile
+        #   # https://github.com/GoogleContainerTools/kaniko/issues/946
+        #   - mountPath: /workspace
+        #     name: workspace
+        #
+        # - name: kaniko
+        #   image: gcr.io/kaniko-project/executor:v1.3.0
+        #   args:
+        #   - --dockerfile=Dockerfile
+        #   - --context=dir:///workspace/source
+        #   - --destination=dippynark/kfmt-build:$(inputs.params.revision)
+        #   - --cache
+        #   - --cache-repo=dippynark/kfmt-build-cache
+        #   volumeMounts:
+        #   - name: kaniko-secret
+        #     mountPath: /kaniko/.docker
+        # volumes:
+        # - name: workspace
+        #   emptyDir: {}
+        # - name: kaniko-secret
+        #   secret:
+        #     secretName: tekton-container-registry-auth
+        #     items:
+        #     - key: .dockerconfigjson
+        #       path: config.json

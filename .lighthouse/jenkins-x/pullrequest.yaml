@@ -66,8 +66,10 @@ spec:
           image: gcr.io/kaniko-project/executor:v1.3.0
           args:
           - --dockerfile=Dockerfile
-          - --context=dir://workspace/source
-          - --destination=dippynark/kfmt:$(inputs.params.PULL_PULL_SHA)
+          - --context=dir:///workspace/source
+          - --destination=dippynark/kfmt-build:$(inputs.params.PULL_PULL_SHA)
+          - --cache
+          - --cache-repo=dippynark/kfmt-build-cache
           volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker

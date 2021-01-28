@@ -5,6 +5,8 @@ BIN_DIR = $(CURDIR)/bin
 INPUT_DIR = $(CURDIR)/input
 OUTPUT_DIR = $(CURDIR)/output
 
+WORK_DIR = /workspace
+
 generate:
 	ls api || git clone https://github.com/kubernetes/api
 	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/discovery/local_discovery.go
@@ -21,7 +23,6 @@ test:
 	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml
 	$(BIN_DIR)/kfmt --input-dir $(INPUT_DIR) --remove-input \
 		--output-dir $(OUTPUT_DIR) \
-		--discovery \
 		--comment
 	rmdir $(INPUT_DIR)
 	find $(OUTPUT_DIR)
@@ -35,7 +36,8 @@ docker_push: docker_image
 
 docker_%: docker_image
 	docker run -it \
-		-w /workspace \
-		-v $(CURDIR):/workspace \
+		-w $(WORK_DIR) \
+		-v $(GOPATH)/pkg/mod:/go/pkg/mod \
+		-v $(CURDIR):$(WORK_DIR) \
 		$(DOCKER_IMAGE) \
 		make $*
