@@ -12,9 +12,14 @@ generate:
 	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/discovery/local_discovery.go
 	go fmt $(CURDIR)/discovery/local_discovery.go
 
+UNAME_S := $(shell uname -s)
 build:
 	mkdir -p $(BIN_DIR)
+ifeq ($(UNAME_S),Linux)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt -a -tags netgo .
+else
 	go build -o $(BIN_DIR)/kfmt .
+endif
 
 test:
 	rm -rf $(INPUT_DIR) $(OUTPUT_DIR)

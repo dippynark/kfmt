@@ -61,9 +61,27 @@ spec:
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.3.0
+          args:
+          - --dockerfile=Dockerfile
+          - --context=dir:///workspace
+          - --destination=dippynark/kfmt:$(inputs.params.revision)
+          - --destination=dippynark/kfmt:latest
+          - --cache
+          - --cache-repo=dippynark/kfmt-cache
+          volumeMounts:
+          - name: kaniko-secret
+            mountPath: /kaniko/.docker
         volumes:
         - name: workspace
           emptyDir: {}
         - name: go-pkg-mod
           hostPath:
             path: /mnt/ssd/data/go/pkg/mod
+        - name: kaniko-secret
+          secret:
+            secretName: tekton-container-registry-auth
+            items:
+            - key: .dockerconfigjson
+              path: config.json
