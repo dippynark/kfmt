@@ -1,0 +1,98 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: release
+spec:
+  serviceAccountName: tekton-bot
+  pipelineSpec:
+    params:
+    - description: git url to clone
+      name: REPO_URL
+      type: string
+    - default: master
+      description: git revision to checkout (branch, tag, sha, ref…)
+      name: revision
+      type: string
+    - default: source
+      description: subdirectory inside of /workspace to clone the git repo
+      name: subdirectory
+      type: string
+    tasks:
+    - name: regenerate
+      params:
+      - name: REPO_URL
+        value: $(params.REPO_URL)
+      - name: revision
+        value: $(params.revision)
+      - name: subdirectory
+        value: $(params.subdirectory)
+      taskSpec:
+        params:
+        - description: git url to clone
+          name: REPO_URL
+          type: string
+        - default: master
+          description: git revision to checkout (branch, tag, sha, ref…)
+          name: revision
+          type: string
+        - default: source
+          description: subdirectory inside of /workspace to clone the git repo
+          name: subdirectory
+          type: string
+        stepTemplate:
+          env:
+          - name: PIPELINE_KIND
+            value: release
+          - name: JX_BATCH_MODE
+            value: "true"
+          - name: VERSION
+            value: $(inputs.params.version)
+          name: ""
+          volumeMounts:
+          - mountPath: /workspace
+            name: workspace
+          - mountPath: /etc/podinfo
+            name: podinfo
+            readOnly: true
+        steps:
+        - name: git-clone
+          image: dippynark/home-environment:v1.0.0
+          command:
+          - /bin/sh
+          args:
+          - -ce
+          - 'mkdir -p $HOME; git config --global --add user.name dippynark-bot;
+            git config --global --add user.email lukeaddison785@gmail.com;
+            git config --global credential.helper store; git clone $(inputs.params.REPO_URL)
+            $(inputs.params.subdirectory); echo cloned url: $(inputs.params.REPO_URL)
+            to dir: $(inputs.params.subdirectory); cd $(inputs.params.subdirectory);
+            git checkout $(inputs.params.revision); echo checked out revision: $(inputs.params.revision)
+            to dir: $(inputs.params.subdirectory)'
+          workingDir: /workspace
+        - name: git-setup
+          image: dippynark/home-environment:v1.0.0
+          command:
+          - jx
+          args:
+          - gitops
+          - git
+          - setup
+          - --secret
+          - lighthouse-git-auth
+          workingDir: /workspace/source
+        - name: make
+          image: dippynark/home-environment:v1.0.0
+          command:
+          - make
+          args:
+          - pr
+          workingDir: /workspace/source
+        volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: podinfo
+          downwardAPI:
+            items:
+            - fieldRef:
+                fieldPath: metadata.labels
+              path: labels

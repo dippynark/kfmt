@@ -1,0 +1,159 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: pullrequest
+spec:
+  serviceAccountName: tekton-bot
+  pipelineSpec:
+    params:
+    - description: git url to clone
+      name: REPO_URL
+      type: string
+    - default: master
+      description: git revision to checkout (branch, tag, sha, ref…)
+      name: PULL_PULL_SHA
+      type: string
+    - default: source
+      description: subdirectory inside of /workspace to clone the git repo
+      name: subdirectory
+      type: string
+    tasks:
+    - name: kaniko-build
+      params:
+      - name: REPO_URL
+        value: $(params.REPO_URL)
+      - name: PULL_PULL_SHA
+        value: $(params.PULL_PULL_SHA)
+      - name: subdirectory
+        value: $(params.subdirectory)
+      taskSpec:
+        params:
+        - description: git url to clone
+          name: REPO_URL
+          type: string
+        - default: master
+          description: git revision to checkout (branch, tag, sha, ref…)
+          name: PULL_PULL_SHA
+          type: string
+        - default: source
+          description: subdirectory inside of /workspace to clone the git repo
+          name: subdirectory
+          type: string
+        stepTemplate:
+          env:
+          - name: REPO_URL
+            value: $(params.REPO_URL)
+          - name: PULL_PULL_SHA
+            value: $(params.PULL_PULL_SHA)
+          - name: PIPELINE_KIND
+            value: pullrequest
+          name: ""
+          volumeMounts:
+          - mountPath: /workspace
+            name: workspace
+        steps:
+        - name: git-clone
+          image: dippynark/home-environment:v1.0.0
+          command:
+          - /bin/sh
+          args:
+          - -ce
+          - |
+            mkdir -p $HOME;
+            git config --global --add user.name dippynark-bot;
+            git config --global --add user.email lukeaddison785@gmail.com;
+            git config --global credential.helper store;
+            git clone $(inputs.params.REPO_URL) $(inputs.params.subdirectory);
+            echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
+            cd $(inputs.params.subdirectory);
+            git checkout $(inputs.params.PULL_PULL_SHA);
+            echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)'
+          workingDir: /workspace
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.3.0
+          args:
+          - --dockerfile=Dockerfile
+          - --context=dir://workspace/source
+          - --destination=dippynark/kfmt:${PULL_PULL_SHA}
+          volumeMounts:
+          - name: kaniko-secret
+            mountPath: /kaniko/.docker
+        volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: kaniko-secret
+          secret:
+            secretName: tekton-container-registry-auth
+            items:
+            - key: .dockerconfigjson
+              path: config.json
+    # - name: regenerate
+    #   params:
+    #   - name: REPO_URL
+    #     value: $(params.REPO_URL)
+    #   - name: PULL_PULL_SHA
+    #     value: $(params.PULL_PULL_SHA)
+    #   - name: subdirectory
+    #     value: $(params.subdirectory)
+    #   taskSpec:
+    #     params:
+    #     - description: git url to clone
+    #       name: REPO_URL
+    #       type: string
+    #     - default: master
+    #       description: git revision to checkout (branch, tag, sha, ref…)
+    #       name: PULL_PULL_SHA
+    #       type: string
+    #     - default: source
+    #       description: subdirectory inside of /workspace to clone the git repo
+    #       name: subdirectory
+    #       type: string
+    #     stepTemplate:
+    #       env:
+    #       - name: REPO_URL
+    #         value: $(params.REPO_URL)
+    #       - name: PULL_PULL_SHA
+    #         value: $(params.PULL_PULL_SHA)
+    #       - name: PIPELINE_KIND
+    #         value: pullrequest
+    #       name: ""
+    #       volumeMounts:
+    #       - mountPath: /workspace
+    #         name: workspace
+    #     steps:
+    #     - name: git-clone
+    #       image: dippynark/home-environment:v1.0.0
+    #       command:
+    #       - /bin/sh
+    #       args:
+    #       - -ce
+    #       - |
+    #         mkdir -p $HOME;
+    #         git config --global --add user.name dippynark-bot;
+    #         git config --global --add user.email lukeaddison785@gmail.com;
+    #         git config --global credential.helper store;
+    #         git clone $(inputs.params.REPO_URL) $(inputs.params.subdirectory);
+    #         echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
+    #         cd $(inputs.params.subdirectory);
+    #         git checkout $(inputs.params.PULL_PULL_SHA);
+    #         echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)'
+    #       workingDir: /workspace
+    #     - name: kaniko
+    #       image: gcr.io/kaniko-project/executor:latest
+    #       args:
+    #       - --dockerfile=/workspace/Dockerfile
+    #       - --context=dir://workspace
+    #       - --destination=dippynark/kfmt
+    #       volumeMounts:
+    #       - name: kaniko-secret
+    #         mountPath: /kaniko/.docker
+    #     - name: make
+    #       image: dippynark/home-environment:v1.0.0
+    #       command:
+    #       - make
+    #       args:
+    #       - pr
+    #       workingDir: /workspace/source
+    #     volumes:
+    #     - name: workspace
+    #       emptyDir: {}
