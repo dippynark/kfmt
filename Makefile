@@ -41,5 +41,5 @@ docker_%: docker_build_image
 		-w $(WORK_DIR) \
 		-v $(GOPATH)/pkg/mod:/go/pkg/mod \
 		-v $(CURDIR):$(WORK_DIR) \
-		$(DOCKER_IMAGE) \
+		$(DOCKER_BUILD_IMAGE) \
 		make $*
