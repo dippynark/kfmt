@@ -67,7 +67,7 @@ spec:
             echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
             cd $(inputs.params.subdirectory);
             git checkout $(inputs.params.PULL_PULL_SHA);
-            echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)'
+            echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)
           workingDir: /workspace
         - name: kaniko
           image: gcr.io/kaniko-project/executor:v1.3.0
@@ -136,7 +136,7 @@ spec:
     #         echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
     #         cd $(inputs.params.subdirectory);
     #         git checkout $(inputs.params.PULL_PULL_SHA);
-    #         echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)'
+    #         echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: $(inputs.params.subdirectory)
     #       workingDir: /workspace
     #     - name: kaniko
     #       image: gcr.io/kaniko-project/executor:latest
