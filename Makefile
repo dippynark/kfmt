@@ -1,4 +1,4 @@
-DOCKER_IMAGE = dippynark/kfmt-build
+DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.0.0
 
 BIN_DIR = $(CURDIR)/bin
 
@@ -27,14 +27,16 @@ test:
 	rmdir $(INPUT_DIR)
 	find $(OUTPUT_DIR)
 
-docker_image:
+docker_build_image:
 	docker build \
-		-t $(DOCKER_IMAGE) $(CURDIR)
+		-t $(DOCKER_BUILD_IMAGE) \
+		-f Dockerfile.build \
+		$(CURDIR)
 
-docker_push: docker_image
-	docker push $(DOCKER_IMAGE)
+docker_build_image_push: docker_build_image
+	docker push $(DOCKER_BUILD_IMAGE)
 
-docker_%: docker_image
+docker_%: docker_build_image
 	docker run -it \
 		-w $(WORK_DIR) \
 		-v $(GOPATH)/pkg/mod:/go/pkg/mod \

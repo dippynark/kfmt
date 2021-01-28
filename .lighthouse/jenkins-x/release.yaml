@@ -13,10 +13,6 @@ spec:
       description: git revision to checkout (branch, tag, sha, ref…)
       name: revision
       type: string
-    - default: source
-      description: subdirectory inside of /workspace to clone the git repo
-      name: subdirectory
-      type: string
     tasks:
     - name: build
       params:
@@ -24,8 +20,6 @@ spec:
         value: $(params.REPO_URL)
       - name: revision
         value: $(params.revision)
-      - name: subdirectory
-        value: $(params.subdirectory)
       taskSpec:
         params:
         - description: git url to clone
@@ -34,10 +28,6 @@ spec:
         - default: master
           description: git revision to checkout (branch, tag, sha, ref…)
           name: revision
-          type: string
-        - default: source
-          description: subdirectory inside of /workspace to clone the git repo
-          name: subdirectory
           type: string
         stepTemplate:
           name: ""
@@ -56,23 +46,17 @@ spec:
             git config --global --add user.name dippynark-bot;
             git config --global --add user.email lukeaddison785@gmail.com;
             git config --global credential.helper store;
-            git clone $(inputs.params.REPO_URL) $(inputs.params.subdirectory);
-            echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
-            cd $(inputs.params.subdirectory);
+            git clone $(inputs.params.REPO_URL) .;
+            echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
             git checkout $(inputs.params.revision);
-            echo checked out revision: $(inputs.params.revision) to dir: $(inputs.params.subdirectory)
+            echo checked out revision: $(inputs.params.revision) to dir: `pwd`
           workingDir: /workspace
         - name: build
-          image: golang:1.15-alpine
+          image: dippynark/kfmt-build:v1.0.0
           command:
-          - /bin/sh
-          args:
-          - -ce
-          - |
-            apk add --update make curl
-
-            cd /workspace/source
-            make build test
+          - make
+          - build
+          - test
           workingDir: /workspace
           volumeMounts:
           - name: go-pkg-mod
