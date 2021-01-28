@@ -40,13 +40,6 @@ spec:
           name: subdirectory
           type: string
         stepTemplate:
-          env:
-          - name: REPO_URL
-            value: $(params.REPO_URL)
-          - name: PULL_PULL_SHA
-            value: $(params.PULL_PULL_SHA)
-          - name: PIPELINE_KIND
-            value: pullrequest
           name: ""
           volumeMounts:
           - mountPath: /workspace
@@ -74,7 +67,7 @@ spec:
           args:
           - --dockerfile=Dockerfile
           - --context=dir://workspace/source
-          - --destination=dippynark/kfmt:${PULL_PULL_SHA}
+          - --destination=dippynark/kfmt:$(inputs.params.PULL_PULL_SHA)
           volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker

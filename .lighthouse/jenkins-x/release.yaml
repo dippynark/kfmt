@@ -18,7 +18,7 @@ spec:
       name: subdirectory
       type: string
     tasks:
-    - name: regenerate
+    - name: kaniko-build
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -40,59 +40,43 @@ spec:
           name: subdirectory
           type: string
         stepTemplate:
-          env:
-          - name: PIPELINE_KIND
-            value: release
-          - name: JX_BATCH_MODE
-            value: "true"
-          - name: VERSION
-            value: $(inputs.params.version)
           name: ""
           volumeMounts:
           - mountPath: /workspace
             name: workspace
-          - mountPath: /etc/podinfo
-            name: podinfo
-            readOnly: true
         steps:
         - name: git-clone
-          image: dippynark/home-environment:v1.0.0
+          image: alpine/git:v2.30.0
           command:
           - /bin/sh
           args:
           - -ce
-          - 'mkdir -p $HOME; git config --global --add user.name dippynark-bot;
+          - |
+            mkdir -p $HOME;
+            git config --global --add user.name dippynark-bot;
             git config --global --add user.email lukeaddison785@gmail.com;
-            git config --global credential.helper store; git clone $(inputs.params.REPO_URL)
-            $(inputs.params.subdirectory); echo cloned url: $(inputs.params.REPO_URL)
-            to dir: $(inputs.params.subdirectory); cd $(inputs.params.subdirectory);
-            git checkout $(inputs.params.revision); echo checked out revision: $(inputs.params.revision)
-            to dir: $(inputs.params.subdirectory)'
+            git config --global credential.helper store;
+            git clone $(inputs.params.REPO_URL) $(inputs.params.subdirectory);
+            echo cloned url: $(inputs.params.REPO_URL) to dir: $(inputs.params.subdirectory);
+            cd $(inputs.params.subdirectory);
+            git checkout $(inputs.params.revision);
+            echo checked out revision: $(inputs.params.revision) to dir: $(inputs.params.subdirectory)
           workingDir: /workspace
-        - name: git-setup
-          image: dippynark/home-environment:v1.0.0
-          command:
-          - jx
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.3.0
           args:
-          - gitops
-          - git
-          - setup
-          - --secret
-          - lighthouse-git-auth
-          workingDir: /workspace/source
-        - name: make
-          image: dippynark/home-environment:v1.0.0
-          command:
-          - make
-          args:
-          - pr
-          workingDir: /workspace/source
+          - --dockerfile=Dockerfile
+          - --context=dir:///workspace/source
+          - --destination=dippynark/kfmt-build:$(inputs.params.revision)
+          volumeMounts:
+          - name: kaniko-secret
+            mountPath: /kaniko/.docker
         volumes:
         - name: workspace
           emptyDir: {}
-        - name: podinfo
-          downwardAPI:
+        - name: kaniko-secret
+          secret:
+            secretName: tekton-container-registry-auth
             items:
-            - fieldRef:
-                fieldPath: metadata.labels
-              path: labels
+            - key: .dockerconfigjson
+              path: config.json
