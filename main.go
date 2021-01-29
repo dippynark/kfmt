@@ -216,10 +216,15 @@ func (o *Options) findNamespaces(inputFile string, resourceInspector discovery.R
 			gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
 
 			// Ignore filtered resources
+			isFiltered := false
 			for _, filter := range o.filters {
 				if gvk.GroupKind().String() == filter {
-					continue
+					isFiltered = true
+					break
 				}
+			}
+			if isFiltered {
+				continue
 			}
 
 			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
@@ -407,10 +412,15 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
 
 	// Ignore filtered resources
+	isFiltered := false
 	for _, filter := range o.filters {
 		if gvk.GroupKind().String() == filter {
-			return nil
+			isFiltered = true
+			break
 		}
+	}
+	if isFiltered {
+		return nil
 	}
 
 	namespace, err := getNamespace(node)
