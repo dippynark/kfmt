@@ -22,15 +22,6 @@ import (
 )
 
 const (
-	inputDirFlag        = "input-dir"
-	outputDirFlag       = "output-dir"
-	discoveryFlag       = "discovery"
-	kubeconfigFlag      = "kubeconfig"
-	removeInputFlag     = "remove-input"
-	filterKindGroupFlag = "filter-kind-group"
-	stripFlag           = "strip"
-	commentFlag         = "comment"
-
 	// Namespaces to copy resource into
 	annotationNamespacesKey = "kfmt.dev/namespaces"
 	annotationNamespacesAll = "*"
@@ -49,14 +40,17 @@ const (
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	inputDirs          []string
-	outputDir          string
-	discovery          bool
-	kubeconfig         string
-	removeInput        bool
-	filteredKindGroups []string
-	strip              bool
-	comment            bool
+	output     string
+	inputs     []string
+	filters    []string
+	namespace  string
+	clean      bool
+	strict     bool
+	remove     bool
+	comment    bool
+	overwrite  bool
+	discovery  bool
+	kubeconfig string
 }
 
 func main() {
@@ -72,21 +66,24 @@ func main() {
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
-	cmd.Flags().StringArrayVarP(&o.inputDirs, inputDirFlag, string([]rune(inputDirFlag)[0]), []string{}, "Directories containing hydrated configs")
-	cmd.Flags().StringVarP(&o.outputDir, outputDirFlag, string([]rune(outputDirFlag)[0]), "", "Output directory")
-	cmd.Flags().BoolVarP(&o.discovery, discoveryFlag, string([]rune(discoveryFlag)[0]), false, "Use API Server for discovery")
-	cmd.Flags().BoolVarP(&o.removeInput, removeInputFlag, string([]rune(removeInputFlag)[0]), false, "Remove processed input files")
-	cmd.Flags().StringArrayVarP(&o.filteredKindGroups, filterKindGroupFlag, string([]rune(filterKindGroupFlag)[0]), []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
-	cmd.Flags().BoolVarP(&o.strip, stripFlag, string([]rune(stripFlag)[0]), false, "Remove namespace field from non-namespaced resources")
-	cmd.Flags().BoolVarP(&o.comment, commentFlag, string([]rune(commentFlag)[0]), false, "Comment each output file with relative path of corresponding input file")
+	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, "Input files or directories containing hydrated configs")
+	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write structured configs")
+	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
+	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "Set namespace field if missing from namespaced resources")
+	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
+	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
+	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
+	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the relative path of corresponding input file")
+	cmd.Flags().BoolVar(&o.overwrite, "overwrite", false, "Overwrite existing output files")
 
+	cmd.Flags().BoolVar(&o.discovery, "discovery", false, "Use API Server for discovery")
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
 	} else if home := homedir.HomeDir(); home != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
 	} else {
-		cmd.Flags().StringVarP(&o.kubeconfig, kubeconfigFlag, string([]rune(kubeconfigFlag)[0]), "", "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", "", "Absolute path to the kubeconfig file used for discovery")
 	}
 
 	if err := cmd.Execute(); err != nil {
@@ -97,20 +94,31 @@ func main() {
 
 func (o *Options) Run() error {
 
-	if len(o.inputDirs) == 0 {
-		return errors.Errorf("--%s is not set", inputDirFlag)
+	if len(o.inputs) == 0 {
+		return errors.New("no inputs specified")
 	}
-	if o.outputDir == "" {
-		return errors.Errorf("--%s is not set", outputDirFlag)
+	if o.output == "" {
+		return errors.Errorf("output directory not specified")
 	}
 
 	var yamlFiles []string
-	for _, inputDir := range o.inputDirs {
-		files, err := listYAMLFiles(inputDir)
+	for _, input := range o.inputs {
+		info, err := os.Stat(input)
 		if err != nil {
 			return err
 		}
-		yamlFiles = append(yamlFiles, files...)
+		switch mode := info.Mode(); {
+		case mode.IsDir():
+			inputFiles, err := listYAMLFiles(input)
+			if err != nil {
+				return err
+			}
+			yamlFiles = append(yamlFiles, inputFiles...)
+		case mode.IsRegular():
+			yamlFiles = append(yamlFiles, input)
+		default:
+			return fmt.Errorf("%s is not a directory or regular file", input)
+		}
 	}
 
 	// Discovery
@@ -145,7 +153,7 @@ func (o *Options) Run() error {
 		}
 
 		// Find used Namespaces
-		newNamespaces, err := findNamespaces(yamlFile, resourceInspector)
+		newNamespaces, err := o.findNamespaces(yamlFile, resourceInspector)
 		if err != nil {
 			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)
 		}
@@ -171,7 +179,7 @@ func (o *Options) Run() error {
 }
 
 // findNamespaces finds used namespaces
-func findNamespaces(inputFile string, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
+func (o *Options) findNamespaces(inputFile string, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
 	namespaces := map[string]struct{}{}
 
 	b, err := ioutil.ReadFile(inputFile)
@@ -219,6 +227,9 @@ func findNamespaces(inputFile string, resourceInspector discovery.ResourceInspec
 					return namespaces, err
 				}
 				if namespace == "" {
+					namespace = o.namespace
+				} else {
+					// TODO: use default namespace from kubeconfig
 					namespace = corev1.NamespaceDefault
 				}
 				namespaces[namespace] = struct{}{}
@@ -232,7 +243,7 @@ func findNamespaces(inputFile string, resourceInspector discovery.ResourceInspec
 // createMissingNamespaces creates missing Namespace configs
 func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) error {
 	for namespace := range allNamespaces {
-		namespaceFile := filepath.Join(o.outputDir, nonNamespacedDirectory, "namespaces", namespace+".yaml")
+		namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
 		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
 			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
@@ -365,7 +376,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 	}
 
 	// Remove processed file
-	if o.removeInput {
+	if o.remove {
 		err = os.Remove(inputFile)
 		if err != nil {
 			return errors.Wrapf(err, "failed to remove input file %s", inputFile)
@@ -390,8 +401,8 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
 
 	// Ignore filtered group.kinds
-	for _, filteredKindGroup := range o.filteredKindGroups {
-		if gvk.GroupKind().String() == filteredKindGroup {
+	for _, filter := range o.filters {
+		if gvk.GroupKind().String() == filter {
 			return nil
 		}
 	}
@@ -415,13 +426,17 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 	var outputFile string
 	if isClusterScoped {
 		if namespace != "" {
-			if o.strip {
+			if o.clean {
 				err = node.SetNamespace("")
 				if err != nil {
 					return err
 				}
 				namespace = ""
-			} else {
+			}
+		}
+
+		if o.strict {
+			if namespace != "" {
 				return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
 			}
 		}
@@ -433,8 +448,12 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 		}
 	} else {
 		if namespace == "" {
-			// TODO: use default namespace from kubeconfig
-			namespace = corev1.NamespaceDefault
+			if o.namespace != "" {
+				namespace = o.namespace
+			} else {
+				// TODO: use default namespace from kubeconfig
+				namespace = corev1.NamespaceDefault
+			}
 			err = node.SetNamespace(namespace)
 			if err != nil {
 				return err
@@ -479,9 +498,11 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 }
 
 func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNode) error {
-	// https://stackoverflow.com/a/12518877/6180803
-	if _, err := os.Stat(outputFile); err == nil {
-		return fmt.Errorf("file already exists: %s", outputFile)
+	if !o.overwrite {
+		// https://stackoverflow.com/a/12518877/6180803
+		if _, err := os.Stat(outputFile); err == nil {
+			return fmt.Errorf("file already exists: %s", outputFile)
+		}
 	}
 
 	s, err := node.String()
@@ -515,7 +536,7 @@ func (o *Options) getNonNamespacedOutputFile(name string, gvk schema.GroupVersio
 	if !resourceInspector.IsCoreGroup(gvk.Group) {
 		subdirectory = pluralise(strings.ToLower(gvk.Kind)) + "." + gvk.Group
 	}
-	return filepath.Join(o.outputDir, nonNamespacedDirectory, subdirectory, name+".yaml")
+	return filepath.Join(o.output, nonNamespacedDirectory, subdirectory, name+".yaml")
 }
 
 func (o *Options) getNamespacedOutputFile(name, namespace string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
@@ -525,7 +546,7 @@ func (o *Options) getNamespacedOutputFile(name, namespace string, gvk schema.Gro
 		fileName = strings.ToLower(gvk.Kind) + "." + gvk.Group + "-" + name + ".yaml"
 	}
 
-	return filepath.Join(o.outputDir, namespacedDirectory, namespace, fileName)
+	return filepath.Join(o.output, namespacedDirectory, namespace, fileName)
 }
 
 func getAnnotations(node *yaml.RNode) (map[string]string, error) {

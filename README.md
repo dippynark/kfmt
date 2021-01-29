@@ -56,21 +56,24 @@ Usage:
   kfmt [flags]
 
 Flags:
-  -c, --comment                         Comment each output file with relative path of corresponding input file
-  -d, --discovery                       Use API Server for discovery
-  -f, --filter-kind-group stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
-  -h, --help                            Help for kfmt
-  -i, --input-dir stringArray           Directories containing hydrated configs
-  -k, --kubeconfig string               Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
-  -o, --output-dir string               Output directory
-  -r, --remove-input                    Remove processed input files
-  -s, --strip                           Remove namespace field from non-namespaced resources
+      --clean                Remove namespace field from non-namespaced resources
+      --comment              Comment each output file with the relative path of corresponding input file
+      --discovery            Use API Server for discovery
+  -f, --filter stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
+  -h, --help                 Help for kfmt
+  -i, --input stringArray    Input files or directories containing hydrated configs
+  -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
+  -n, --namespace string     Set namespace field if missing from namespaced resources
+  -o, --output string        Output directory to write structured configs
+      --overwrite            Overwrite existing output files
+      --remove               Remove processed input files
+      --strict               Require namespace is not set for non-namespaced resources
 ```
 
-Namespaced resources in any input directory can be annotated as follows:
+Namespaced resources in any input can be annotated as follows:
 
 ```
-kfmt.dev/namespaces: namespace1,namespace2,...
+kfmt.dev/namespaces: "namespace1,namespace2,..."
 ```
 
 The resource will be copied into each named Namespace. Note that each Namespace must be present in
