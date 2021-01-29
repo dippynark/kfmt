@@ -75,7 +75,6 @@ func main() {
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
 	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the relative path of corresponding input file")
 	cmd.Flags().BoolVar(&o.overwrite, "overwrite", false, "Overwrite existing output files")
-
 	cmd.Flags().BoolVar(&o.discovery, "discovery", false, "Use API Server for discovery")
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
