@@ -238,10 +238,12 @@ func (o *Options) findNamespaces(inputFile string, resourceInspector discovery.R
 					return namespaces, err
 				}
 				if namespace == "" {
-					namespace = o.namespace
-				} else {
-					// TODO: use default namespace from kubeconfig
-					namespace = corev1.NamespaceDefault
+					if o.namespace == "" {
+						namespace = o.namespace
+					} else {
+						// TODO: use default namespace from kubeconfig
+						namespace = corev1.NamespaceDefault
+					}
 				}
 				namespaces[namespace] = struct{}{}
 			}
