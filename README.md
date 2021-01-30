@@ -94,6 +94,3 @@ make build test
 ## TODO
 
 - Accept input from stdin
-- Use argument for output directory (as that's the only required thing to specify)?
-- Support `-namespace` notation in the `kfmt.ddev/namespaces` annotation to exclude particular namespaces
-- Support overwrite flag to overwrite existing files in output directory

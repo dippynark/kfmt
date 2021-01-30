@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: cert-manager
+  annotations:
+    kfmt.dev/namespaces: "*,-kube-system"
+spec:
+  hard:
+    pods: "10"

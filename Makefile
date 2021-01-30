@@ -1,10 +1,8 @@
 DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.0.0
 
 BIN_DIR = $(CURDIR)/bin
-
 INPUT_DIR = $(CURDIR)/input
 OUTPUT_DIR = $(CURDIR)/output
-
 WORK_DIR = /workspace
 
 generate:
@@ -22,15 +20,13 @@ else
 endif
 
 test:
-	rm -rf $(INPUT_DIR) $(OUTPUT_DIR)
-	mkdir -p $(INPUT_DIR)
+	rm -rf $(OUTPUT_DIR)
 	# Download cert-manager manifests
 	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml
-	$(BIN_DIR)/kfmt --input $(INPUT_DIR) --remove \
+	$(BIN_DIR)/kfmt --input $(INPUT_DIR) \
 		--output $(OUTPUT_DIR) \
 		--strict \
 		--comment
-	rmdir $(INPUT_DIR)
 	find $(OUTPUT_DIR)
 
 docker_build_image:

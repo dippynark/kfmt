@@ -238,7 +238,7 @@ func (o *Options) findNamespaces(inputFile string, resourceInspector discovery.R
 					return namespaces, err
 				}
 				if namespace == "" {
-					if o.namespace == "" {
+					if o.namespace != "" {
 						namespace = o.namespace
 					} else {
 						// TODO: use default namespace from kubeconfig
@@ -483,13 +483,18 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 			return err
 		}
 		namespaces := map[string]struct{}{namespace: {}}
+		excludedNamespaces := map[string]struct{}{}
 		// TODO: remove annotation after processing
 		namespacesAnnotation, ok := annotations[annotationNamespacesKey]
 		if ok {
-			if namespacesAnnotation == annotationNamespacesAll {
-				namespaces = allNamespaces
-			} else {
-				for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
+			for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
+				if namespacesAnnotationNamespace == annotationNamespacesAll {
+					for namespace := range allNamespaces {
+						namespaces[namespace] = struct{}{}
+					}
+				} else if strings.HasPrefix(namespacesAnnotationNamespace, "-") {
+					excludedNamespaces[strings.TrimPrefix(namespacesAnnotationNamespace, "-")] = struct{}{}
+				} else {
 					if _, ok := allNamespaces[namespacesAnnotationNamespace]; !ok {
 						// We cannot allow this annotation to create new Namespaces because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
 						return fmt.Errorf("Namespace \"%s\" not found when processing annotation %s", namespacesAnnotationNamespace, annotationNamespacesKey)
@@ -497,9 +502,16 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 					namespaces[namespacesAnnotationNamespace] = struct{}{}
 				}
 			}
+			// Clear annotation
+			delete(annotations, annotationNamespacesKey)
+			node.SetAnnotations(annotations)
 		}
 
 		for namespace := range namespaces {
+			// Do not copy if Namespaces is excluded
+			if _, ok := excludedNamespaces[namespace]; ok {
+				continue
+			}
 			err = node.SetNamespace(namespace)
 			if err != nil {
 				return err

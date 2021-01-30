@@ -1,0 +1,10 @@
+---
+# Source: ../../../input/resourcequota.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: cert-manager
+spec:
+  hard:
+    pods: "10"
