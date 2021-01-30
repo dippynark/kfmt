@@ -508,6 +508,7 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 		}
 
 		for namespace := range namespaces {
+
 			// Do not copy if Namespaces is excluded
 			if _, ok := excludedNamespaces[namespace]; ok {
 				continue
