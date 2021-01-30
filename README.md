@@ -79,7 +79,7 @@ kfmt.dev/namespaces: "namespace1,namespace2,..."
 The resource will be copied into each named Namespace. Note that each Namespace must be present in
 the configs being processed, either due to a Namespace resource being defined or any Namespaced
 resource being in that Namespace. Alternatively, the special value `*` can be used and the resource
-will be copied into every Namespace.
+will be copied into every Namespace. Prefixing a Namespace name with `-` excludes that Namespace.
 
 ## Example
 
