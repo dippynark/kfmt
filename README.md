@@ -13,6 +13,15 @@ Inspiration is taken from a number of other tools:
 - [jx gitops helmfile
   move](https://github.com/jenkins-x/jx-gitops/blob/master/docs/cmd/jx-gitops_helmfile_move.md)
 
+## Installation
+
+```sh
+GO111MODULE=on go get github.com/dippynark/kfmt
+```
+
+kfmt is also distributed as a [binary](https://github.com/dippynark/kfmt/releases) and a [Docker
+image](https://hub.docker.com/repository/docker/dippynark/kfmt).
+
 ## Usage
 
 ```text
@@ -105,11 +114,6 @@ repository could also benefit from kfmt by running it as a final step in CI, tak
 hydrated manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
 annotation can also be used to copy policy resources across Namespaces and having a standard format
 may make any changes easier to review.
-
-## Install
-
-kfmt is distributed both as a [binary release](https://github.com/dippynark/kfmt/releases) and a
-[Docker image](https://hub.docker.com/repository/docker/dippynark/kfmt).
 
 ## TODO
 
