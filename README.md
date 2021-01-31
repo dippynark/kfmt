@@ -50,18 +50,18 @@ output
 ## Usage
 
 ```text
-kfmt organises Kubernetes configs into a canonical format.
+kfmt organises Kubernetes configs into a canonical format
 
 Usage:
   kfmt [flags]
 
 Flags:
       --clean                Remove namespace field from non-namespaced resources
-      --comment              Comment each output file with the relative path of corresponding input file
+      --comment              Comment each output file with the absolute path of the corresponding input file
       --discovery            Use API Server for discovery
   -f, --filter stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
   -h, --help                 Help for kfmt
-  -i, --input stringArray    Input files or directories containing hydrated configs
+  -i, --input stringArray    Input files or directories containing hydrated configs. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -n, --namespace string     Set namespace field if missing from namespaced resources
   -o, --output string        Output directory to write structured configs
@@ -90,7 +90,3 @@ canonical format.
 ```sh
 make build test
 ```
-
-## TODO
-
-- Accept input from stdin

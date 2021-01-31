@@ -58,7 +58,7 @@ func main() {
 
 	cmd := &cobra.Command{
 		Use:   "kfmt",
-		Short: "kfmt organises Kubernetes configs into a canonical format.",
+		Short: "kfmt organises Kubernetes configs into a canonical format",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Run()
 			helper.CheckErr(err)
@@ -66,14 +66,14 @@ func main() {
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
-	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, "Input files or directories containing hydrated configs")
+	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, "Input files or directories containing hydrated configs. If no input is specified /dev/stdin will be used")
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write structured configs")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "Set namespace field if missing from namespaced resources")
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
-	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the relative path of corresponding input file")
+	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the absolute path of the corresponding input file")
 	cmd.Flags().BoolVar(&o.overwrite, "overwrite", false, "Overwrite existing output files")
 	cmd.Flags().BoolVar(&o.discovery, "discovery", false, "Use API Server for discovery")
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
@@ -93,31 +93,8 @@ func main() {
 
 func (o *Options) Run() error {
 
-	if len(o.inputs) == 0 {
-		return errors.New("no inputs specified")
-	}
 	if o.output == "" {
 		return errors.Errorf("output directory not specified")
-	}
-
-	var yamlFiles []string
-	for _, input := range o.inputs {
-		info, err := os.Stat(input)
-		if err != nil {
-			return err
-		}
-		switch mode := info.Mode(); {
-		case mode.IsDir():
-			inputFiles, err := listYAMLFiles(input)
-			if err != nil {
-				return err
-			}
-			yamlFiles = append(yamlFiles, inputFiles...)
-		case mode.IsRegular():
-			yamlFiles = append(yamlFiles, input)
-		default:
-			return fmt.Errorf("%s is not a directory or regular file", input)
-		}
 	}
 
 	// Discovery
@@ -139,11 +116,50 @@ func (o *Options) Run() error {
 		}
 	}
 
+	var yamlFiles []string
+	if len(o.inputs) > 0 {
+		for _, input := range o.inputs {
+			info, err := os.Stat(input)
+			if err != nil {
+				return err
+			}
+			switch mode := info.Mode(); {
+			case mode.IsDir():
+				inputFiles, err := listYAMLFiles(input)
+				if err != nil {
+					return err
+				}
+				yamlFiles = append(yamlFiles, inputFiles...)
+			case mode.IsRegular():
+				yamlFiles = append(yamlFiles, input)
+			default:
+				return fmt.Errorf("%s is not a directory or regular file", input)
+			}
+		}
+	} else {
+		// Read from stdin if no input specified
+		yamlFiles = []string{os.Stdin.Name()}
+	}
+
+	// Gather nodes
+	yamlFileNodes := map[string][]*yaml.RNode{}
+	for _, yamlFile := range yamlFiles {
+		b, err := ioutil.ReadFile(yamlFile)
+		if err != nil {
+			return err
+		}
+		newNodes, err := kio.FromBytes(b)
+		if err != nil {
+			return err
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
+
 	// Preprocess
 	allNamespaces := map[string]struct{}{}
-	for _, yamlFile := range yamlFiles {
+	for yamlFile, nodes := range yamlFileNodes {
 		// Find local resources defined by CRDs
-		resources, err := findResources(yamlFile)
+		resources, err := findResources(nodes)
 		if err != nil {
 			log.Fatalf("Failed to find CRDs in %s: %v", yamlFile, err)
 		}
@@ -152,7 +168,7 @@ func (o *Options) Run() error {
 		}
 
 		// Find used Namespaces
-		newNamespaces, err := o.findNamespaces(yamlFile, resourceInspector)
+		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
 		if err != nil {
 			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)
 		}
@@ -162,8 +178,8 @@ func (o *Options) Run() error {
 	}
 
 	// Move each YAML file into output directory structure
-	for _, yamlFile := range yamlFiles {
-		err := o.moveFile(yamlFile, resourceInspector, allNamespaces)
+	for yamlFile, nodes := range yamlFileNodes {
+		err := o.moveFile(yamlFile, nodes, resourceInspector, allNamespaces)
 		if err != nil {
 			return err
 		}
@@ -178,18 +194,8 @@ func (o *Options) Run() error {
 }
 
 // findNamespaces finds used namespaces
-func (o *Options) findNamespaces(inputFile string, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
+func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
 	namespaces := map[string]struct{}{}
-
-	b, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return namespaces, err
-	}
-
-	nodes, err := kio.FromBytes(b)
-	if err != nil {
-		return namespaces, err
-	}
 
 	// Look for namespaces in each config
 	for _, node := range nodes {
@@ -302,18 +308,8 @@ func listYAMLFiles(inputDir string) ([]string, error) {
 }
 
 // findResources finds resources defined as CRDs to add to discovery
-func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
+func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error) {
 	resources := map[schema.GroupVersionKind]bool{}
-
-	b, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return resources, err
-	}
-
-	nodes, err := kio.FromBytes(b)
-	if err != nil {
-		return resources, err
-	}
 
 	// Look for a resource definition in each config
 	for _, node := range nodes {
@@ -368,21 +364,11 @@ func findResources(inputFile string) (map[schema.GroupVersionKind]bool, error) {
 }
 
 // moveFile moves the input file into the right place in the output structure
-func (o *Options) moveFile(inputFile string, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
-
-	// Separate input file into individual configs
-	b, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return err
-	}
-	nodes, err := kio.FromBytes(b)
-	if err != nil {
-		return err
-	}
+func (o *Options) moveFile(inputFile string, nodes []*yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
 	// Put each config into right location
 	for _, node := range nodes {
-		err = o.moveConfig(inputFile, node, resourceInspector, allNamespaces)
+		err := o.moveConfig(inputFile, node, resourceInspector, allNamespaces)
 		if err != nil {
 			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
@@ -390,7 +376,7 @@ func (o *Options) moveFile(inputFile string, resourceInspector discovery.Resourc
 
 	// Remove processed file
 	if o.remove {
-		err = os.Remove(inputFile)
+		err := os.Remove(inputFile)
 		if err != nil {
 			return errors.Wrapf(err, "failed to remove input file %s", inputFile)
 		}
@@ -546,13 +532,9 @@ func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNod
 		return err
 	}
 
-	relPath, err := filepath.Rel(filepath.Dir(outputFile), inputFile)
-	if err != nil {
-		return err
-	}
 	comment := ""
 	if o.comment {
-		comment = fmt.Sprintf("# Source: %s\n", relPath)
+		comment = fmt.Sprintf("# Source: %s\n", inputFile)
 	}
 	err = ioutil.WriteFile(outputFile, []byte(configSeparator+comment+s), defaultFilePerms)
 	if err != nil {

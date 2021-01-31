@@ -1,5 +1,5 @@
 ---
-# Source: ../../../input/cert-manager.yaml
+# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/cert-manager.yaml
 # Copyright  The Jetstack cert-manager contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

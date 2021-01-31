@@ -1,5 +1,5 @@
 ---
-# Source: ../../../input/resourcequota.yaml
+# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/resourcequota.yaml
 apiVersion: v1
 kind: ResourceQuota
 metadata:

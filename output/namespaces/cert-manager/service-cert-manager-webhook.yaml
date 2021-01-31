@@ -1,5 +1,5 @@
 ---
-# Source: ../../../input/cert-manager.yaml
+# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/cert-manager.yaml
 apiVersion: v1
 kind: Service
 metadata:
