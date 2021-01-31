@@ -1,6 +1,4 @@
 .vscode
 
-/api
-/kube-aggregator
-/apiextensions-apiserver
+/k8s.io
 /bin

@@ -155,10 +155,8 @@ func (o *Options) Run() error {
 		yamlFileNodes[yamlFile] = newNodes
 	}
 
-	// Preprocess
-	allNamespaces := map[string]struct{}{}
+	// Add local CRDs to discovery
 	for yamlFile, nodes := range yamlFileNodes {
-		// Find local resources defined by CRDs
 		resources, err := findResources(nodes)
 		if err != nil {
 			log.Fatalf("Failed to find CRDs in %s: %v", yamlFile, err)
@@ -166,8 +164,10 @@ func (o *Options) Run() error {
 		for gvk, namespaced := range resources {
 			resourceInspector.AddResource(gvk, namespaced)
 		}
+	}
 
-		// Find used Namespaces
+	allNamespaces := map[string]struct{}{}
+	for yamlFile, nodes := range yamlFileNodes {
 		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
 		if err != nil {
 			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)

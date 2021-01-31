@@ -3,13 +3,15 @@ DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.0.0
 BIN_DIR = $(CURDIR)/bin
 INPUT_DIR = $(CURDIR)/input
 OUTPUT_DIR = $(CURDIR)/output
+K8S_DIR = $(CURDIR)/k8s.io
 WORK_DIR = /workspace
 
 generate:
-	ls api || git clone https://github.com/kubernetes/api
-	ls kube-aggregator || git clone https://github.com/kubernetes/kube-aggregator
-	ls apiextensions-apiserver || git clone https://github.com/kubernetes/apiextensions-apiserver
-	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/kube-aggregator $(CURDIR)/apiextensions-apiserver $(CURDIR)/discovery/local_discovery.go
+	mkdir -p $(K8S_DIR)
+	ls $(K8S_DIR)/api || git clone https://github.com/kubernetes/api $(K8S_DIR)/api
+	ls $(K8S_DIR)/kube-aggregator || git clone https://github.com/kubernetes/kube-aggregator $(K8S_DIR)/kube-aggregator
+	ls $(K8S_DIR)/apiextensions-apiserver || git clone https://github.com/kubernetes/apiextensions-apiserver $(K8S_DIR)/apiextensions-apiserver
+	go run hack/discovery-gen.go -- $(K8S_DIR) $(CURDIR)/discovery/local_discovery.go
 	go fmt $(CURDIR)/discovery/local_discovery.go
 
 UNAME_S := $(shell uname -s)
@@ -18,7 +20,7 @@ build:
 ifeq ($(UNAME_S),Linux)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt -a -tags netgo .
 else
-	CGO_ENABLED=0 GO111MODULE=off go build -o $(BIN_DIR)/kfmt .
+	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt .
 endif
 
 test: go_test e2e_test
@@ -29,8 +31,6 @@ go_test:
 
 e2e_test:
 	rm -rf $(OUTPUT_DIR)
-	# Download cert-manager manifests
-	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml
 	$(BIN_DIR)/kfmt --input $(INPUT_DIR) \
 		--output $(OUTPUT_DIR) \
 		--strict \

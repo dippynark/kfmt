@@ -24,27 +24,23 @@ review the changes that are going to be made to the cluster and ensures there ar
 canonical format looks as follows:
 
 ```sh
-# Directory to be synced
+# kfmt output directory
 output
   # Directory containing non-namespaced resources
   cluster
-    # Each non-namespaced resource is moved into a directory named after its kind
-    clusterrolebinding
-      # Files are named after the resource name and kind
-      cert-manager-cainjector.yaml
-      cert-manager-controller-certificates.yaml
-      ...
-    clusterroles
-    namespaces
-    ...
+    # Each non-namespaced resource is given a directory named after its kind and group. The group is
+    # used to prevent clashes between resources of the same kind in different groups but is omitted
+    # for core resources
+    <pluralised-kind>.<group>
+      # Files are named after the resource name
+      <name>.yaml
   # Directory containing namespaced resources
   namespaces
-    # Each Namespace is given its own directory
-    cert-manager
-      cert-manager-cainjector-deployment.yaml
-      ...
-    kube-system
-    ...
+    # Each Namespace is given its own directory named after its name
+    <namespace-name>
+      # Files are named after the resource name, kind and group. The group is ommitted for core
+      # resouces
+      <kind>.<group>-<name>.yaml
 ```
 
 ## Usage
@@ -104,9 +100,8 @@ kubectl api-versions > api-versions.txt
 
 ## Example
 
-The following sequence of targets builds kfmt, downloads the
-[cert-manager](https://github.com/jetstack/cert-manager) release manifests and formats them into the
-canonical format.
+The following sequence of targets builds kfmt and formats the manifests in the input directory into
+the canonical format.
 
 ```sh
 make docker_build docker_test

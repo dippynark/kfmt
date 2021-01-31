@@ -1,0 +1,10 @@
+---
+# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/resourcequota.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: default
+spec:
+  hard:
+    pods: "10"
