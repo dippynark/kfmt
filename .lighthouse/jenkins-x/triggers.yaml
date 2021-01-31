@@ -44,6 +44,5 @@ spec:
     context: release
     source: release.yaml
     branches:
-    - main
     - master
     - ^v\d+\.\d+\.\d+$
