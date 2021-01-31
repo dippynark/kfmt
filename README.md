@@ -16,7 +16,7 @@ Inspiration is taken from a number of other tools:
 ## Usage
 
 ```text
-kfmt organises Kubernetes manifests into a standard format
+kfmt organises Kubernetes manifests into a standard format.
 
 Usage:
   kfmt [flags]
