@@ -1,5 +1,5 @@
 ---
-# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/nginx.yaml
+# Source: input/nginx.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:

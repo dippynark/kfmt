@@ -1,5 +1,5 @@
 ---
-# Source: /Users/luke/go/src/github.com/dippynark/kfmt/input/service.yaml
+# Source: input/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
