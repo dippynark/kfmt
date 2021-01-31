@@ -1,2 +1,4 @@
 /api
+/kube-aggregator
+/apiextensions-apiserver
 /bin

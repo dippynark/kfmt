@@ -7,7 +7,9 @@ WORK_DIR = /workspace
 
 generate:
 	ls api || git clone https://github.com/kubernetes/api
-	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/discovery/local_discovery.go
+	ls kube-aggregator || git clone https://github.com/kubernetes/kube-aggregator
+	ls apiextensions-apiserver || git clone https://github.com/kubernetes/apiextensions-apiserver
+	go run hack/discovery-gen.go -- $(CURDIR)/api $(CURDIR)/kube-aggregator $(CURDIR)/apiextensions-apiserver $(CURDIR)/discovery/local_discovery.go
 	go fmt $(CURDIR)/discovery/local_discovery.go
 
 UNAME_S := $(shell uname -s)

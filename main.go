@@ -470,7 +470,6 @@ func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspect
 		}
 		namespaces := map[string]struct{}{namespace: {}}
 		excludedNamespaces := map[string]struct{}{}
-		// TODO: remove annotation after processing
 		namespacesAnnotation, ok := annotations[annotationNamespacesKey]
 		if ok {
 			for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
