@@ -97,7 +97,7 @@ func (o *Options) Run() error {
 		return errors.Errorf("output directory not specified")
 	}
 
-	// Discovery
+	// Initialise discovery to determine whether resources are namespaced or not
 	var resourceInspector discovery.ResourceInspector
 	if o.discovery {
 		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
@@ -116,6 +116,7 @@ func (o *Options) Run() error {
 		}
 	}
 
+	// Find all YAML files specified as input
 	var yamlFiles []string
 	if len(o.inputs) > 0 {
 		for _, input := range o.inputs {
@@ -141,7 +142,7 @@ func (o *Options) Run() error {
 		yamlFiles = []string{os.Stdin.Name()}
 	}
 
-	// Gather nodes
+	// Map input files to nodes (parsed YAML documents)
 	yamlFileNodes := map[string][]*yaml.RNode{}
 	for _, yamlFile := range yamlFiles {
 		b, err := ioutil.ReadFile(yamlFile)
@@ -166,6 +167,7 @@ func (o *Options) Run() error {
 		}
 	}
 
+	// Find all Namespaces either declared as resources or appearing in the metadata.namespace field
 	allNamespaces := map[string]struct{}{}
 	for yamlFile, nodes := range yamlFileNodes {
 		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
@@ -177,7 +179,7 @@ func (o *Options) Run() error {
 		}
 	}
 
-	// Move each YAML file into output directory structure
+	// Write each node into output directory structure, cleaning up input files if specified
 	for yamlFile, nodes := range yamlFileNodes {
 		err := o.moveFile(yamlFile, nodes, resourceInspector, allNamespaces)
 		if err != nil {
