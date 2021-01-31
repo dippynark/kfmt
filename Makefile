@@ -21,7 +21,12 @@ else
 	go build -o $(BIN_DIR)/kfmt .
 endif
 
-test:
+test: go_test e2e_test
+
+go_test:
+	go test -v
+
+e2e_test:
 	rm -rf $(OUTPUT_DIR)
 	# Download cert-manager manifests
 	curl -L https://github.com/jetstack/cert-manager/releases/download/v1.1.0/cert-manager.yaml -o $(INPUT_DIR)/cert-manager.yaml

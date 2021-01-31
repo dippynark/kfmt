@@ -1,3 +1,5 @@
+.vscode
+
 /api
 /kube-aggregator
 /apiextensions-apiserver
