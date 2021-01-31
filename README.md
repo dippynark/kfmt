@@ -103,8 +103,8 @@ GitOps tools such as [Flux](https://github.com/fluxcd/flux2) and [Anthos Config
 Management](https://cloud.google.com/anthos/config-management) that sync manifests from a Git
 repository could also benefit from kfmt by running it as a final step in CI, taking in all the
 hydrated manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
-annotation can also be used to copy policy resources across Namespaces and having a well-defined
-manifest format may make any changes easier to review.
+annotation can also be used to copy policy resources across Namespaces and having a standard format
+may make any changes easier to review.
 
 ## Example
 
