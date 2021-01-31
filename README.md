@@ -1,6 +1,6 @@
 # kfmt
 
-kfmt takes input files and directories containing Kubernetes manifests and structures them into a
+kfmt takes input files and directories containing Kubernetes manifests and organises them into a
 canonical format.
 
 Inspiration is taken from a number of other tools:
@@ -64,7 +64,7 @@ Flags:
   -i, --input stringArray    Input files or directories containing hydrated manifests. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -n, --namespace string     Set namespace field if missing from namespaced resources
-  -o, --output string        Output directory to write structured manifests
+  -o, --output string        Output directory to write organised manifests
       --overwrite            Overwrite existing output files
       --remove               Remove processed input files
       --strict               Require namespace is not set for non-namespaced resources
@@ -83,7 +83,7 @@ will be copied into every Namespace. Prefixing a Namespace name with `-` exclude
 
 ### Discovery
 
-kfmt needs to know whether a resource is Namespaced or not to know how to structure the manifests.
+kfmt needs to know whether a resource is Namespaced or not to know how to organise the manifests.
 kfmt understands core Kubernetes resources and supports the `--discovery` flag to use the Kubernetes
 discovery API for custom resources. kfmt will also read local CRDs for this discovery information
 and so will only connect to the Kubernetes API if there are custom resources that have no
