@@ -21,7 +21,7 @@ release:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 -tags netgo
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 -tags netgo
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe -tags netgo
-	sha256sum bin/kfmt-linux-amd64 bin/kfmt-darwin-amd64 bin/kfmt-windows-amd64.exe > $(BIN_DIR)/checksums.txt
+	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-windows-amd64.exe > checksums.txt
 
 test: go_test e2e_test
 
