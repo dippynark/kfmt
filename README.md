@@ -114,3 +114,7 @@ the standard format.
 ```sh
 make docker_build docker_test
 ```
+
+## TODO
+
+- Configure release pipeline to push to latest when master branch is built
