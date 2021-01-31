@@ -106,14 +106,10 @@ hydrated manifests to be synced and verifying there are no clashes. Using the `k
 annotation can also be used to copy policy resources across Namespaces and having a standard format
 may make any changes easier to review.
 
-## Example
+## Install
 
-The following sequence of targets builds kfmt and formats the manifests in the input directory into
-the standard format.
-
-```sh
-make docker_build docker_test
-```
+kfmt is distributed both as a [binary release](https://github.com/dippynark/kfmt/releases) and a
+[Docker image](https://hub.docker.com/repository/docker/dippynark/kfmt).
 
 ## TODO
 
