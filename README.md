@@ -1,7 +1,7 @@
 # kfmt
 
-This tool takes input directories containing Kubernetes configs and structures them into a canonical
-format.
+kfmt takes input files and directories containing Kubernetes configs and structures them into a
+canonical format.
 
 Inspiration is taken from a number of other tools:
 
