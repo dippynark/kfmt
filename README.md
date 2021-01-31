@@ -81,6 +81,27 @@ the configs being processed, either due to a Namespace resource being defined or
 resource being in that Namespace. Alternatively, the special value `*` can be used and the resource
 will be copied into every Namespace. Prefixing a Namespace name with `-` excludes that Namespace.
 
+### Discovery
+
+kfmt needs to know whether a resource is Namespaced or not to know how to structure the configs.
+kfmt understands core Kubernetes resources and supports the `--discovery` flag to use the Kubernetes
+discovery API for custom resources. kfmt will also read local CRDs for this discovery information
+and so will only connect to the Kubernetes API if there are custom resources that have no
+corresponding CRD.
+
+In addition, kfmt supports reading cached discovery information which can be produced by writing it
+to disk:
+
+```sh
+kubectl api-resources > api-resources.txt
+```
+
+Similarly, this discovery information can be augmented with all available versions:
+
+```sh
+kubectl api-versions > api-versions.txt
+```
+
 ## Example
 
 The following sequence of targets builds kfmt, downloads the
