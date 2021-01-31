@@ -66,7 +66,7 @@ func main() {
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
-	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, "Input files or directories containing hydrated configs. If no input is specified /dev/stdin will be used")
+	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing hydrated configs. If no input is specified %s will be used", os.Stdin.Name()))
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write structured configs")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "Set namespace field if missing from namespaced resources")
