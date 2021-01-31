@@ -36,7 +36,7 @@ Flags:
       --discovery            Use API Server for discovery
   -f, --filter stringArray   Filter kind.group from output manifests (e.g. Deployment.apps or Secret)
   -h, --help                 Help for kfmt
-  -i, --input stringArray    Input files or directories containing hydrated manifests. If no input is specified /dev/stdin will be used
+  -i, --input stringArray    Input files or directories containing manifests. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -n, --namespace string     Set namespace field if missing from namespaced resources
   -o, --output string        Output directory to write organised manifests
@@ -111,7 +111,7 @@ them easier to browse.
 GitOps tools such as [Flux](https://github.com/fluxcd/flux2) and [Anthos Config
 Management](https://cloud.google.com/anthos/config-management) that sync manifests from a Git
 repository could also benefit from kfmt by running it as a final step in CI, taking in all the
-hydrated manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
+manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
 annotation can also be used to copy policy resources across Namespaces and having a standard format
 may make any changes easier to review.
 
