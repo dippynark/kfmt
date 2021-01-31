@@ -67,7 +67,6 @@ spec:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
           - --destination=dippynark/kfmt:$(inputs.params.revision)
-          - --destination=dippynark/kfmt:latest
           - --cache
           - --cache-repo=dippynark/kfmt-cache
           volumeMounts:
