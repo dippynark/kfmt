@@ -68,14 +68,15 @@ func copyMap(m map[schema.GroupVersionKind]bool) map[schema.GroupVersionKind]boo
 func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
 	cachedResources := map[schema.GroupVersionKind]bool{}
 
-	// TODO: allow path to be user-specified
-	inputFile := "api-resources.txt"
+	// TODO: allow paths to be user-specified
+	apiResourcesFile := "api-resources.txt"
+	apiVersionsFile := "api-versions.txt"
 
-	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
+	if _, err := os.Stat(apiResourcesFile); os.IsNotExist(err) {
 		return cachedResources, nil
 	}
 
-	file, err := os.Open(inputFile)
+	file, err := os.Open(apiResourcesFile)
 	if err != nil {
 		return cachedResources, err
 	}
@@ -109,6 +110,34 @@ func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
 			Kind:    kind,
 		}
 		cachedResources[gvk] = namespaced
+	}
+
+	if _, err := os.Stat(apiVersionsFile); os.IsNotExist(err) {
+		return cachedResources, nil
+	}
+
+	file, err = os.Open(apiVersionsFile)
+	if err != nil {
+		return cachedResources, err
+	}
+	defer file.Close()
+
+	scanner = bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		gv, err := schema.ParseGroupVersion(line)
+		if err != nil {
+			return cachedResources, err
+		}
+
+		for gvk, namespaced := range cachedResources {
+			if gvk.Group == gv.Group {
+				newGVK := gvk
+				newGVK.Version = gv.Version
+				cachedResources[newGVK] = namespaced
+			}
+		}
 	}
 
 	return cachedResources, nil
