@@ -109,5 +109,5 @@ The following sequence of targets builds kfmt, downloads the
 canonical format.
 
 ```sh
-make build test
+make docker_build docker_test
 ```

@@ -18,13 +18,14 @@ build:
 ifeq ($(UNAME_S),Linux)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt -a -tags netgo .
 else
-	go build -o $(BIN_DIR)/kfmt .
+	CGO_ENABLED=0 GO111MODULE=off go build -o $(BIN_DIR)/kfmt .
 endif
 
 test: go_test e2e_test
 
 go_test:
-	go test -v
+	# https://github.com/golang/go/issues/28065#issuecomment-725632025
+	CGO_ENABLED=0 go test -v
 
 e2e_test:
 	rm -rf $(OUTPUT_DIR)
