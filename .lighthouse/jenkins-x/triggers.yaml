@@ -43,7 +43,6 @@ spec:
   - name: release
     context: release
     source: release.yaml
-    decorate: true
     branches:
     - main
     - master
