@@ -10,7 +10,7 @@ import (
 )
 
 func TestFindNamespaces(t *testing.T) {
-	configs := `
+	manifests := `
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -30,7 +30,7 @@ metadata:
 		t.Error(err)
 	}
 
-	nodes, err := kio.FromBytes([]byte(configs))
+	nodes, err := kio.FromBytes([]byte(manifests))
 	if err != nil {
 		t.Error(err)
 	}
@@ -45,7 +45,7 @@ metadata:
 }
 
 func TestFindResources(t *testing.T) {
-	configs := `
+	manifests := `
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -64,7 +64,7 @@ spec:
 		{Group: "test.io", Version: "v1beta1", Kind: "Tester"}: true,
 	}
 
-	nodes, err := kio.FromBytes([]byte(configs))
+	nodes, err := kio.FromBytes([]byte(manifests))
 	if err != nil {
 		t.Error(err)
 	}

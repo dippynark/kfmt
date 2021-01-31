@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// LocalResourceInspector implements ResourceInspector using local configs
+// LocalResourceInspector implements ResourceInspector using local manifests
 type LocalResourceInspector struct {
 	resources map[schema.GroupVersionKind]bool
 }

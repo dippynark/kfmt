@@ -28,7 +28,7 @@ const (
 
 	kubeconfigEnvVar = "KUBECONFIG"
 
-	configSeparator = "---\n"
+	manifestSeparator = "---\n"
 
 	nonNamespacedDirectory = "cluster"
 	namespacedDirectory    = "namespaces"
@@ -58,7 +58,7 @@ func main() {
 
 	cmd := &cobra.Command{
 		Use:   "kfmt",
-		Short: "kfmt organises Kubernetes configs into a canonical format",
+		Short: "kfmt organises Kubernetes manifests into a canonical format",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Run()
 			helper.CheckErr(err)
@@ -66,9 +66,9 @@ func main() {
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
-	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing hydrated configs. If no input is specified %s will be used", os.Stdin.Name()))
-	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write structured configs")
-	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output configs (e.g. Deployment.apps or Secret)")
+	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing hydrated manifests. If no input is specified %s will be used", os.Stdin.Name()))
+	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write structured manifests")
+	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "Set namespace field if missing from namespaced resources")
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
@@ -185,7 +185,7 @@ func (o *Options) Run() error {
 		}
 	}
 
-	// Create missing Namespace configs
+	// Create missing Namespace manifests
 	if err := o.createMissingNamespaces(allNamespaces); err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (o *Options) Run() error {
 func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
 	namespaces := map[string]struct{}{}
 
-	// Look for namespaces in each config
+	// Look for namespaces in each manifest
 	for _, node := range nodes {
 
 		kind, err := getKind(node)
@@ -259,7 +259,7 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 	return namespaces, nil
 }
 
-// createMissingNamespaces creates missing Namespace configs
+// createMissingNamespaces creates missing Namespace manifests
 func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) error {
 	for namespace := range allNamespaces {
 		namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
@@ -270,12 +270,12 @@ func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) err
 				return err
 			}
 
-			namespaceConfig := fmt.Sprintf(configSeparator+`apiVersion: v1
+			namespaceManifest := fmt.Sprintf(manifestSeparator+`apiVersion: v1
 kind: Namespace
 metadata:
   name: %s
 `, namespace)
-			err = ioutil.WriteFile(namespaceFile, []byte(namespaceConfig), defaultFilePerms)
+			err = ioutil.WriteFile(namespaceFile, []byte(namespaceManifest), defaultFilePerms)
 			if err != nil {
 				return err
 			}
@@ -311,7 +311,7 @@ func listYAMLFiles(inputDir string) ([]string, error) {
 func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error) {
 	resources := map[schema.GroupVersionKind]bool{}
 
-	// Look for a resource definition in each config
+	// Look for a resource definition in each manifest
 	for _, node := range nodes {
 
 		kind, err := getKind(node)
@@ -366,9 +366,9 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 // moveFile moves the input file into the right place in the output structure
 func (o *Options) moveFile(inputFile string, nodes []*yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
-	// Put each config into right location
+	// Put each manifest into right location
 	for _, node := range nodes {
-		err := o.moveConfig(inputFile, node, resourceInspector, allNamespaces)
+		err := o.moveManifest(inputFile, node, resourceInspector, allNamespaces)
 		if err != nil {
 			return errors.Wrapf(err, "failed to process input file %s", inputFile)
 		}
@@ -385,7 +385,7 @@ func (o *Options) moveFile(inputFile string, nodes []*yaml.RNode, resourceInspec
 	return nil
 }
 
-func (o *Options) moveConfig(inputFile string, node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
+func (o *Options) moveManifest(inputFile string, node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
 
 	apiVersion, err := getAPIVersion(node)
 	if err != nil {
@@ -535,7 +535,7 @@ func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNod
 	if o.comment {
 		comment = fmt.Sprintf("# Source: %s\n", inputFile)
 	}
-	err = ioutil.WriteFile(outputFile, []byte(configSeparator+comment+s), defaultFilePerms)
+	err = ioutil.WriteFile(outputFile, []byte(manifestSeparator+comment+s), defaultFilePerms)
 	if err != nil {
 		return err
 	}

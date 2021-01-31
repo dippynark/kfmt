@@ -1,6 +1,6 @@
 # kfmt
 
-kfmt takes input files and directories containing Kubernetes configs and structures them into a
+kfmt takes input files and directories containing Kubernetes manifests and structures them into a
 canonical format.
 
 Inspiration is taken from a number of other tools:
@@ -16,12 +16,12 @@ Inspiration is taken from a number of other tools:
 ## Use Case
 
 GitOps tools such as [Flux](https://github.com/fluxcd/flux) and [Anthos Config
-Management](https://cloud.google.com/anthos/config-management) sync configs from a Git repository to
-a Kubernetes cluster. kfmt allows you to take the hydrated configs to be synced and reformat them
-into a canonical format which these GitOps tools can then be pointed at. When changes are made to
-these configs, having them formatted in this canonical format makes it easier for a human to review
-the changes that are going to be made to the cluster and ensures there are no clashes. The canonical
-format looks as follows:
+Management](https://cloud.google.com/anthos/config-management) sync manifests from a Git repository
+to a Kubernetes cluster. kfmt allows you to take the hydrated manifests to be synced and reformat
+them into a canonical format which these GitOps tools can then be pointed at. When changes are made
+to these manifests, having them formatted in this canonical format makes it easier for a human to
+review the changes that are going to be made to the cluster and ensures there are no clashes. The
+canonical format looks as follows:
 
 ```sh
 # Directory to be synced
@@ -50,7 +50,7 @@ output
 ## Usage
 
 ```text
-kfmt organises Kubernetes configs into a canonical format
+kfmt organises Kubernetes manifests into a canonical format
 
 Usage:
   kfmt [flags]
@@ -59,12 +59,12 @@ Flags:
       --clean                Remove namespace field from non-namespaced resources
       --comment              Comment each output file with the absolute path of the corresponding input file
       --discovery            Use API Server for discovery
-  -f, --filter stringArray   Filter kind.group from output configs (e.g. Deployment.apps or Secret)
+  -f, --filter stringArray   Filter kind.group from output manifests (e.g. Deployment.apps or Secret)
   -h, --help                 Help for kfmt
-  -i, --input stringArray    Input files or directories containing hydrated configs. If no input is specified /dev/stdin will be used
+  -i, --input stringArray    Input files or directories containing hydrated manifests. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -n, --namespace string     Set namespace field if missing from namespaced resources
-  -o, --output string        Output directory to write structured configs
+  -o, --output string        Output directory to write structured manifests
       --overwrite            Overwrite existing output files
       --remove               Remove processed input files
       --strict               Require namespace is not set for non-namespaced resources
@@ -77,13 +77,13 @@ kfmt.dev/namespaces: "namespace1,namespace2,..."
 ```
 
 The resource will be copied into each named Namespace. Note that each Namespace must be present in
-the configs being processed, either due to a Namespace resource being defined or any Namespaced
+the manifests being processed, either due to a Namespace resource being defined or any Namespaced
 resource being in that Namespace. Alternatively, the special value `*` can be used and the resource
 will be copied into every Namespace. Prefixing a Namespace name with `-` excludes that Namespace.
 
 ### Discovery
 
-kfmt needs to know whether a resource is Namespaced or not to know how to structure the configs.
+kfmt needs to know whether a resource is Namespaced or not to know how to structure the manifests.
 kfmt understands core Kubernetes resources and supports the `--discovery` flag to use the Kubernetes
 discovery API for custom resources. kfmt will also read local CRDs for this discovery information
 and so will only connect to the Kubernetes API if there are custom resources that have no
