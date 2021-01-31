@@ -11,6 +11,7 @@ spec:
       type: string
     - default: master
       description: the base git reference of the pull request
+      # TODO: work out why this is set to the tag value
       name: PULL_BASE_REF
       type: string
     tasks:
