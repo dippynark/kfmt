@@ -10,24 +10,24 @@ spec:
       name: REPO_URL
       type: string
     - default: master
-      description: git revision to checkout (branch, tag, sha, ref…)
-      name: revision
+      description: the base git reference of the pull request
+      name: PULL_BASE_REF
       type: string
     tasks:
     - name: build
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
-      - name: revision
-        value: $(params.revision)
+      - name: PULL_BASE_REF
+        value: $(params.PULL_BASE_REF)
       taskSpec:
         params:
         - description: git url to clone
           name: REPO_URL
           type: string
         - default: master
-          description: git revision to checkout (branch, tag, sha, ref…)
-          name: revision
+          description: the base git reference of the pull request
+          name: PULL_BASE_REF
           type: string
         stepTemplate:
           name: ""
@@ -48,8 +48,8 @@ spec:
             git config --global credential.helper store;
             git clone $(inputs.params.REPO_URL) .;
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
-            git checkout $(inputs.params.revision);
-            echo checked out revision: $(inputs.params.revision) to dir: `pwd`
+            git checkout $(inputs.params.PULL_BASE_REF);
+            echo checked out PULL_BASE_REF: $(inputs.params.PULL_BASE_REF) to dir: `pwd`
           workingDir: /workspace
         - name: build
           image: dippynark/kfmt-build:v1.0.0
@@ -66,7 +66,7 @@ spec:
           args:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
-          - --destination=dippynark/kfmt:$(inputs.params.revision)
+          - --destination=dippynark/kfmt:$(inputs.params.PULL_BASE_REF)
           - --cache
           - --cache-repo=dippynark/kfmt-cache
           volumeMounts:
