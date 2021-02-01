@@ -32,12 +32,12 @@ Usage:
 
 Flags:
       --clean                Remove namespace field from non-namespaced resources
-      --comment              Comment each output file with the absolute path of the corresponding input file
+      --comment              Comment each output file with the path of the corresponding input file
       --discovery            Use API Server for discovery
   -f, --filter stringArray   Filter kind.group from output manifests (e.g. Deployment.apps or Secret)
   -h, --help                 Help for kfmt
   -i, --input stringArray    Input files or directories containing manifests. If no input is specified /dev/stdin will be used
-  -k, --kubeconfig string    Absolute path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
+  -k, --kubeconfig string    Path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
   -n, --namespace string     Set namespace field if missing from namespaced resources
   -o, --output string        Output directory to write organised manifests
       --overwrite            Overwrite existing output files
