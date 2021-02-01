@@ -73,16 +73,16 @@ func main() {
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
-	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the absolute path of the corresponding input file")
+	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the path of the corresponding input file")
 	cmd.Flags().BoolVar(&o.overwrite, "overwrite", false, "Overwrite existing output files")
 	cmd.Flags().BoolVar(&o.discovery, "discovery", false, "Use API Server for discovery")
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", kubeconfigEnvVarValue, "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", kubeconfigEnvVarValue, "Path to the kubeconfig file used for discovery")
 	} else if home := homedir.HomeDir(); home != "" {
-		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", filepath.Join(home, ".kube", "config"), "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", filepath.Join(home, ".kube", "config"), "Path to the kubeconfig file used for discovery")
 	} else {
-		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", "", "Absolute path to the kubeconfig file used for discovery")
+		cmd.Flags().StringVarP(&o.kubeconfig, "kubeconfig", "k", "", "Path to the kubeconfig file used for discovery")
 	}
 
 	if err := cmd.Execute(); err != nil {
@@ -355,9 +355,10 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 				Version: resourceVersion,
 				Kind:    resourceKind,
 			}
-			if _, ok := resources[gvk]; ok {
-				return resources, fmt.Errorf("resource already exists: %s", gvk.String())
-			}
+			// TODO: should we allow discovery information to be overwritten?
+			// if _, ok := resources[gvk]; ok {
+			// 	return resources, fmt.Errorf("resource already exists: %s", gvk.String())
+			// }
 			resources[gvk] = namespaced
 		}
 	}
