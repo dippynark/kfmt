@@ -70,7 +70,7 @@ func main() {
 	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing manifests. If no input is specified %s will be used", os.Stdin.Name()))
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write organised manifests")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
-	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", corev1.NamespaceDefault, "Set namespace field if missing from namespaced resources")
+	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", corev1.NamespaceDefault, "Set metadata.namespace field if missing from namespaced resources")
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
