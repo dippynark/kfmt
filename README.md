@@ -91,7 +91,7 @@ output
 |   |   # group is used to prevent clashes between resources with the same kind in different groups
 |   |   # but is omitted for core resources
 │   └── <pluralised-kind>.<group>
-|       |   // Files are named after the resource name
+|       |   # Files are named after the resource name
 │       └── <name>.yaml
 |   # Directory containing namespaced resources
 └── namespaces
@@ -115,3 +115,7 @@ repository could also benefit from kfmt by running it as a final step in CI, tak
 manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
 annotation can also be used to copy policy resources across Namespaces and having a standard format
 may make any changes easier to review.
+
+## TODO
+
+- Mock out the filesystem for testing: https://talks.golang.org/2012/10things.slide#8
