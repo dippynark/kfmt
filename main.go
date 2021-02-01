@@ -98,9 +98,6 @@ func (o *Options) Run() error {
 	if o.output == "" {
 		return errors.Errorf("output directory not specified")
 	}
-	if o.namespace == "" {
-		o.namespace = corev1.NamespaceDefault
-	}
 
 	// Initialise discovery to determine whether resources are namespaced or not
 	var resourceInspector discovery.ResourceInspector
@@ -252,7 +249,11 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 					return namespaces, err
 				}
 				if namespace == "" {
-					namespace = o.namespace
+					if o.namespace != "" {
+						namespace = o.namespace
+					} else {
+						namespace = corev1.NamespaceDefault
+					}
 				}
 				namespaces[namespace] = struct{}{}
 			}
@@ -456,7 +457,11 @@ func (o *Options) moveManifest(inputFile string, node *yaml.RNode, resourceInspe
 		}
 	} else {
 		if namespace == "" {
-			namespace = o.namespace
+			if o.namespace != "" {
+				namespace = o.namespace
+			} else {
+				namespace = corev1.NamespaceDefault
+			}
 			err = node.SetNamespace(namespace)
 			if err != nil {
 				return err
