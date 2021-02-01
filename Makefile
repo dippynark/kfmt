@@ -34,7 +34,8 @@ e2e_test:
 	$(BIN_DIR)/kfmt --input $(INPUT_DIR) \
 		--output $(OUTPUT_DIR) \
 		--strict \
-		--comment
+		--comment \
+		--create-missing-namespaces
 	find $(OUTPUT_DIR)
 
 docker_build_image:

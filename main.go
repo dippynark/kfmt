@@ -40,17 +40,18 @@ const (
 var quotes = []string{"'", "\""}
 
 type Options struct {
-	output     string
-	inputs     []string
-	filters    []string
-	namespace  string
-	clean      bool
-	strict     bool
-	remove     bool
-	comment    bool
-	overwrite  bool
-	discovery  bool
-	kubeconfig string
+	output                  string
+	inputs                  []string
+	filters                 []string
+	namespace               string
+	clean                   bool
+	strict                  bool
+	remove                  bool
+	comment                 bool
+	overwrite               bool
+	createMissingNamespaces bool
+	discovery               bool
+	kubeconfig              string
 }
 
 func main() {
@@ -75,6 +76,7 @@ func main() {
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
 	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the path of the corresponding input file")
 	cmd.Flags().BoolVar(&o.overwrite, "overwrite", false, "Overwrite existing output files")
+	cmd.Flags().BoolVar(&o.createMissingNamespaces, "create-missing-namespaces", false, "Create missing Namespace manifests")
 	cmd.Flags().BoolVar(&o.discovery, "discovery", false, "Use API Server for discovery")
 	// https://github.com/kubernetes/client-go/blob/b72204b2445de5ac815ae2bb993f6182d271fdb4/examples/out-of-cluster-client-configuration/main.go#L45-L49
 	if kubeconfigEnvVarValue := os.Getenv(kubeconfigEnvVar); kubeconfigEnvVarValue != "" {
@@ -187,9 +189,10 @@ func (o *Options) Run() error {
 		}
 	}
 
-	// Create missing Namespace manifests
-	if err := o.createMissingNamespaces(allNamespaces); err != nil {
-		return err
+	if o.createMissingNamespaces {
+		if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -261,8 +264,8 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 	return namespaces, nil
 }
 
-// createMissingNamespaces creates missing Namespace manifests
-func (o *Options) createMissingNamespaces(allNamespaces map[string]struct{}) error {
+// createMissingNamespaceManifests creates missing Namespace manifests
+func (o *Options) createMissingNamespaceManifests(allNamespaces map[string]struct{}) error {
 	for namespace := range allNamespaces {
 		namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
