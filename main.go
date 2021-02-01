@@ -189,6 +189,7 @@ func (o *Options) Run() error {
 		}
 	}
 
+	// Create missing Namespace manifests
 	if o.createMissingNamespaces {
 		if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
 			return err
