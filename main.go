@@ -70,7 +70,7 @@ func main() {
 	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing manifests. If no input is specified %s will be used", os.Stdin.Name()))
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write organised manifests")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
-	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", "", "Set namespace field if missing from namespaced resources")
+	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", corev1.NamespaceDefault, "Set namespace field if missing from namespaced resources")
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require namespace is not set for non-namespaced resources")
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
@@ -97,6 +97,9 @@ func (o *Options) Run() error {
 
 	if o.output == "" {
 		return errors.Errorf("output directory not specified")
+	}
+	if o.namespace == "" {
+		o.namespace = corev1.NamespaceDefault
 	}
 
 	// Initialise discovery to determine whether resources are namespaced or not
@@ -249,12 +252,7 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 					return namespaces, err
 				}
 				if namespace == "" {
-					if o.namespace != "" {
-						namespace = o.namespace
-					} else {
-						// TODO: use default namespace from kubeconfig
-						namespace = corev1.NamespaceDefault
-					}
+					namespace = o.namespace
 				}
 				namespaces[namespace] = struct{}{}
 			}
@@ -458,12 +456,7 @@ func (o *Options) moveManifest(inputFile string, node *yaml.RNode, resourceInspe
 		}
 	} else {
 		if namespace == "" {
-			if o.namespace != "" {
-				namespace = o.namespace
-			} else {
-				// TODO: use default namespace from kubeconfig
-				namespace = corev1.NamespaceDefault
-			}
+			namespace = o.namespace
 			err = node.SetNamespace(namespace)
 			if err != nil {
 				return err
