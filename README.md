@@ -39,7 +39,7 @@ Flags:
   -h, --help                        Help for kfmt
   -i, --input stringArray           Input files or directories containing manifests. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string           Path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
-  -n, --namespace string            Set namespace field if missing from namespaced resources
+  -n, --namespace string            Set namespace field if missing from namespaced resources (default "default")
   -o, --output string               Output directory to write organised manifests
       --overwrite                   Overwrite existing output files
       --remove                      Remove processed input files
