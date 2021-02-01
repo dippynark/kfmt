@@ -15,12 +15,40 @@ spec:
       name: PULL_BASE_REF
       type: string
     tasks:
+    - name: calculate-image-tag
+      params:
+      - name: PULL_BASE_REF
+        value: $(params.PULL_BASE_REF)
+      taskSpec:
+        params:
+        - default: master
+          description: the base git reference of the pull request
+          name: PULL_BASE_REF
+          type: string
+        results:
+        - name: tag
+          description: Docker image tag
+        steps:
+        - name: calculate-image-tag
+          image: busybox:1.32
+          command:
+          - /bin/sh
+          args:
+          - -ce
+          - |
+            TAG="$(inputs.params.PULL_BASE_REF)"
+            if [ "$TAG" = "master" ]; then
+              TAG="latest"
+            fi
+            echo $TAG > $(results.tag.path)
     - name: build
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
       - name: PULL_BASE_REF
         value: $(params.PULL_BASE_REF)
+      - name: tag
+        value: $(tasks.calculate-image-tag.results.tag)
       taskSpec:
         params:
         - description: git url to clone
@@ -29,6 +57,9 @@ spec:
         - default: master
           description: the base git reference of the pull request
           name: PULL_BASE_REF
+          type: string
+        - description: Docker image tag
+          name: tag
           type: string
         stepTemplate:
           name: ""
@@ -67,7 +98,7 @@ spec:
           args:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
-          - --destination=dippynark/kfmt:$(inputs.params.PULL_BASE_REF)
+          - --destination=dippynark/kfmt:$(inputs.params.tag)
           - --cache
           - --cache-repo=dippynark/kfmt-cache
           volumeMounts:
