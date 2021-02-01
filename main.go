@@ -71,7 +71,7 @@ func main() {
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write organised manifests")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", corev1.NamespaceDefault, "Set metadata.namespace field if missing from namespaced resources")
-	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove namespace field from non-namespaced resources")
+	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove metadata.namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require metadata.namespace field is not set for non-namespaced resources")
 	cmd.Flags().BoolVar(&o.remove, "remove", false, "Remove processed input files")
 	cmd.Flags().BoolVar(&o.comment, "comment", false, "Comment each output file with the path of the corresponding input file")

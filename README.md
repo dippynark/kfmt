@@ -31,7 +31,7 @@ Usage:
   kfmt [flags]
 
 Flags:
-      --clean                       Remove namespace field from non-namespaced resources
+      --clean                       Remove metadata.namespace field from non-namespaced resources
       --comment                     Comment each output file with the path of the corresponding input file
       --create-missing-namespaces   Create missing Namespace manifests
       --discovery                   Use API Server for discovery
