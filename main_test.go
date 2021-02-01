@@ -23,7 +23,7 @@ metadata:
 `
 	expectedNamespaces := map[string]struct{}{"test": {}, "default": {}}
 
-	o := Options{createMissingNamespaces: true}
+	o := Options{}
 
 	resourceInspector, err := discovery.NewLocalResourceInspector()
 	if err != nil {
