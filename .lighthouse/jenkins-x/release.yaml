@@ -11,7 +11,7 @@ spec:
       type: string
     - default: master
       description: the base git reference of the pull request
-      # TODO: work out why this is set to the tag value
+      # TODO: work out why this is set to the branch name or tag
       name: PULL_BASE_REF
       type: string
     tasks:
@@ -40,8 +40,8 @@ spec:
             if [ "$TAG" = "master" ]; then
               TAG="latest"
             fi
-            echo $TAG > $(results.tag.path)
-    - name: build
+            echo -n $TAG > $(results.tag.path)
+    - name: clone-build-test-push
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -83,7 +83,7 @@ spec:
             git checkout $(inputs.params.PULL_BASE_REF);
             echo checked out PULL_BASE_REF: $(inputs.params.PULL_BASE_REF) to dir: `pwd`
           workingDir: /workspace
-        - name: build
+        - name: build-test
           image: dippynark/kfmt-build:v1.0.0
           command:
           - make
@@ -93,7 +93,7 @@ spec:
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
-        - name: kaniko
+        - name: kaniko-build-push
           image: gcr.io/kaniko-project/executor:v1.3.0
           args:
           - --dockerfile=Dockerfile

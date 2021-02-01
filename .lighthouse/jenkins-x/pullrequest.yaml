@@ -14,7 +14,7 @@ spec:
       name: PULL_PULL_SHA
       type: string
     tasks:
-    - name: build
+    - name: clone-build-test
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -51,7 +51,7 @@ spec:
             git checkout $(inputs.params.PULL_PULL_SHA);
             echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: `pwd`
           workingDir: /workspace
-        - name: build
+        - name: build-test
           image: dippynark/kfmt-build:v1.0.0
           command:
           - make
