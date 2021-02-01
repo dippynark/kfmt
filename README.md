@@ -83,23 +83,23 @@ kubectl api-versions > api-versions.txt
 The standard format used by kfmt is as follows:
 
 ```text
-// kfmt output directory
+# kfmt output directory
 output
-|   // Directory containing non-namespaced resources
+|   # Directory containing non-namespaced resources
 ├── cluster
-|   |   // Each non-namespaced resource is given a directory named after its kind and group. The
-|   |   // group is used to prevent clashes between resources with the same kind in different groups
-|   |   // but is omitted for core resources
+|   |   # Each non-namespaced resource is given a directory named after its kind and group. The
+|   |   # group is used to prevent clashes between resources with the same kind in different groups
+|   |   # but is omitted for core resources
 │   └── <pluralised-kind>.<group>
 |       |   // Files are named after the resource name
 │       └── <name>.yaml
-|   // Directory containing namespaced resources
+|   # Directory containing namespaced resources
 └── namespaces
-    |   // Each Namespace is given its own directory named after its name
+    |   # Each Namespace is given its own directory named after its name
     └── <namespace-name>
-        |   // Files are named after the resource name, kind and group. The group is used to prevent
-        |   // clashes between resources with the same kind and name in different groups but is
-        |   // ommitted for core resouces
+        |   # Files are named after the resource name, kind and group. The group is used to prevent
+        |   # clashes between resources with the same kind and name in different groups but is
+        |   # ommitted for core resouces
         └── <kind>.<group>-<name>.yaml
 ```
 
