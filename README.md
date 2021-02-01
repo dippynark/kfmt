@@ -43,7 +43,7 @@ Flags:
   -o, --output string               Output directory to write organised manifests
       --overwrite                   Overwrite existing output files
       --remove                      Remove processed input files
-      --strict                      Require namespace is not set for non-namespaced resources
+      --strict                      Require metadata.namespace field is not set for non-namespaced resources
 ```
 
 Namespaced resources in any input can be annotated as follows:
