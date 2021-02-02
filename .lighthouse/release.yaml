@@ -11,7 +11,8 @@ spec:
       type: string
     - default: master
       description: the base git reference of the pull request
-      # TODO: work out why this is set to the branch name or tag
+      # PULL_BASE_REF isn't the best name: https://stackoverflow.com/a/55460756/6180803
+      # https://github.com/jenkins-x/lighthouse/blob/cde789ba2cd6835613553351978420be6a583f55/pkg/engines/tekton/test_data/controller/start-batch-pullrequest/observed-lhjob.yml#L32-L33
       name: PULL_BASE_REF
       type: string
     tasks:
