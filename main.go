@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,13 +128,14 @@ func (o *Options) Run() error {
 		return err
 	}
 
-	// Apply resource filters
+	// Remove nodes that match filters
 	err = o.filterNodes(yamlFileNodes)
 	if err != nil {
 		return err
 	}
 
-	// Namespace defaulting
+	// Apply Namespace field defaults to namespaced resources and remove Namespace field from
+	// non-namespaced resources
 	err = o.defaultNamespaces(yamlFileNodes, resourceInspector)
 	if err != nil {
 		return err
@@ -147,14 +147,14 @@ func (o *Options) Run() error {
 		return err
 	}
 
-	// Write out nodes
+	// Write nodes to disk into output directory
 	err = o.writeNodes(yamlFileNodes, resourceInspector)
 	if err != nil {
 		return err
 	}
 
-	// Remove processed files
-	err = o.removeNodes(yamlFileNodes)
+	// Remove processed YAML files
+	err = o.removeYAMLFiles(yamlFileNodes)
 	if err != nil {
 		return err
 	}
@@ -172,37 +172,21 @@ func (o *Options) getResourceInspector() (discovery.ResourceInspector, error) {
 	if o.discovery {
 		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
 		if err != nil {
-			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
+			return resourceInspector, errors.Wrap(err, "failed to build kubernetes REST client config")
 		}
 		resourceInspector, err = discovery.NewAPIServerResourceInspector(restcfg)
 		if err != nil {
-			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
+			return resourceInspector, errors.Wrap(err, "failed to construct APIServer backed resource inspector")
 		}
 	} else {
 		var err error
 		resourceInspector, err = discovery.NewLocalResourceInspector()
 		if err != nil {
-			log.Fatalf("Failed to construct locally backed resource inspector: %v", err)
+			return resourceInspector, errors.Wrap(err, "failed to construct locally backed resource inspector")
 		}
 	}
 
 	return resourceInspector, nil
-}
-
-func (o *Options) findYAMLFileNodes(yamlFiles []string) (map[string][]*yaml.RNode, error) {
-	yamlFileNodes := map[string][]*yaml.RNode{}
-	for _, yamlFile := range yamlFiles {
-		b, err := ioutil.ReadFile(yamlFile)
-		if err != nil {
-			return yamlFileNodes, err
-		}
-		newNodes, err := kio.FromBytes(b)
-		if err != nil {
-			return yamlFileNodes, err
-		}
-		yamlFileNodes[yamlFile] = newNodes
-	}
-	return yamlFileNodes, nil
 }
 
 func (o *Options) findYAMLFiles() ([]string, error) {
@@ -233,6 +217,22 @@ func (o *Options) findYAMLFiles() ([]string, error) {
 	return yamlFiles, nil
 }
 
+func (o *Options) findYAMLFileNodes(yamlFiles []string) (map[string][]*yaml.RNode, error) {
+	yamlFileNodes := map[string][]*yaml.RNode{}
+	for _, yamlFile := range yamlFiles {
+		b, err := ioutil.ReadFile(yamlFile)
+		if err != nil {
+			return yamlFileNodes, err
+		}
+		newNodes, err := kio.FromBytes(b)
+		if err != nil {
+			return yamlFileNodes, err
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
+	return yamlFileNodes, nil
+}
+
 func (o *Options) localDiscovery(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
 	for yamlFile, nodes := range yamlFileNodes {
 		resources, err := findResources(nodes)
@@ -260,36 +260,76 @@ func (o *Options) findAllNamespaces(yamlFileNodes map[string][]*yaml.RNode, reso
 	return allNamespaces, nil
 }
 
-func (o *Options) removeNodes(yamlFileNodes map[string][]*yaml.RNode) error {
-	if o.remove {
-		for yamlFile := range yamlFileNodes {
-			// Ignore stdin
-			if yamlFile == os.Stdin.Name() {
+func (o *Options) filterNodes(yamlFileNodes map[string][]*yaml.RNode) error {
+	for yamlFile, nodes := range yamlFileNodes {
+		filteredNodes := []*yaml.RNode{}
+		for _, node := range nodes {
+			isFiltered, err := o.isFiltered(node)
+			if err != nil {
+				return err
+			}
+			if isFiltered {
 				continue
 			}
-			err := os.Remove(yamlFile)
-			if err != nil {
-				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
-			}
+			filteredNodes = append(filteredNodes, node)
 		}
+		yamlFileNodes[yamlFile] = filteredNodes
 	}
 	return nil
 }
 
-func (o *Options) writeNodes(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
+func (o *Options) defaultNamespaces(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
 	for yamlFile, nodes := range yamlFileNodes {
+		newNodes := []*yaml.RNode{}
 		for _, node := range nodes {
 
-			outputFile, err := o.getOutputFile(node, resourceInspector)
+			namespace, err := getNamespace(node)
+			if err != nil {
+				return errors.Wrap(err, "failed to get namespace")
+			}
+
+			gvk, err := getGVK(node)
 			if err != nil {
 				return err
 			}
 
-			err = o.writeNode(yamlFile, outputFile, node)
+			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
 			if err != nil {
 				return err
 			}
+
+			if isNamespaced {
+				if namespace == "" {
+					if o.namespace != "" {
+						namespace = o.namespace
+					} else {
+						namespace = corev1.NamespaceDefault
+					}
+					err = node.SetNamespace(namespace)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				if namespace != "" {
+					if o.clean {
+						err = node.SetNamespace("")
+						if err != nil {
+							return err
+						}
+						namespace = ""
+					}
+				}
+
+				if o.strict {
+					if namespace != "" {
+						return fmt.Errorf("metadata.namespace field should not be set for cluster-scoped resource: %s", gvk.String())
+					}
+				}
+			}
+			newNodes = append(newNodes, node)
 		}
+		yamlFileNodes[yamlFile] = newNodes
 	}
 	return nil
 }
@@ -382,76 +422,63 @@ func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 	return nil
 }
 
-func (o *Options) filterNodes(yamlFileNodes map[string][]*yaml.RNode) error {
+func (o *Options) writeNodes(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
 	for yamlFile, nodes := range yamlFileNodes {
-		filteredNodes := []*yaml.RNode{}
 		for _, node := range nodes {
-			isFiltered, err := o.isFiltered(node)
+
+			outputFile, err := o.getOutputFile(node, resourceInspector)
 			if err != nil {
 				return err
 			}
-			if isFiltered {
-				continue
+
+			err = o.writeNode(yamlFile, outputFile, node)
+			if err != nil {
+				return err
 			}
-			filteredNodes = append(filteredNodes, node)
 		}
-		yamlFileNodes[yamlFile] = filteredNodes
 	}
 	return nil
 }
 
-func (o *Options) defaultNamespaces(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
-	for yamlFile, nodes := range yamlFileNodes {
-		newNodes := []*yaml.RNode{}
-		for _, node := range nodes {
-
-			namespace, err := getNamespace(node)
+func (o *Options) removeYAMLFiles(yamlFileNodes map[string][]*yaml.RNode) error {
+	if o.remove {
+		for yamlFile := range yamlFileNodes {
+			// Ignore stdin
+			if yamlFile == os.Stdin.Name() {
+				continue
+			}
+			err := os.Remove(yamlFile)
 			if err != nil {
-				return errors.Wrap(err, "failed to get namespace")
+				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
 			}
-
-			gvk, err := getGVK(node)
-			if err != nil {
-				return err
-			}
-
-			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
-			if err != nil {
-				return err
-			}
-
-			if isNamespaced {
-				if namespace == "" {
-					if o.namespace != "" {
-						namespace = o.namespace
-					} else {
-						namespace = corev1.NamespaceDefault
-					}
-					err = node.SetNamespace(namespace)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				if namespace != "" {
-					if o.clean {
-						err = node.SetNamespace("")
-						if err != nil {
-							return err
-						}
-						namespace = ""
-					}
-				}
-
-				if o.strict {
-					if namespace != "" {
-						return fmt.Errorf("metadata.namespace field should not be set for cluster-scoped resource: %s", gvk.String())
-					}
-				}
-			}
-			newNodes = append(newNodes, node)
 		}
-		yamlFileNodes[yamlFile] = newNodes
+	}
+	return nil
+}
+
+// createMissingNamespaceManifests creates missing Namespace manifests
+func (o *Options) createMissingNamespaceManifests(allNamespaces map[string]struct{}) error {
+	if o.createMissingNamespaces {
+		for namespace := range allNamespaces {
+			namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
+
+			if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
+				err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
+				if err != nil {
+					return err
+				}
+
+				namespaceManifest := fmt.Sprintf(manifestSeparator+`apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+`, namespace)
+				err = ioutil.WriteFile(namespaceFile, []byte(namespaceManifest), defaultFilePerms)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -587,33 +614,6 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 	}
 
 	return namespaces, nil
-}
-
-// createMissingNamespaceManifests creates missing Namespace manifests
-func (o *Options) createMissingNamespaceManifests(allNamespaces map[string]struct{}) error {
-	if o.createMissingNamespaces {
-		for namespace := range allNamespaces {
-			namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
-
-			if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
-				err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
-				if err != nil {
-					return err
-				}
-
-				namespaceManifest := fmt.Sprintf(manifestSeparator+`apiVersion: v1
-kind: Namespace
-metadata:
-  name: %s
-`, namespace)
-				err = ioutil.WriteFile(namespaceFile, []byte(namespaceManifest), defaultFilePerms)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // listYAMLFiles lists YAML files to be processed
