@@ -52,10 +52,11 @@ Namespaced resources in any input can be annotated as follows:
 kfmt.dev/namespaces: "namespace1,namespace2,..."
 ```
 
-The resource will be copied into each named Namespace. Note that each Namespace must be present in
-the manifests being processed, either due to a Namespace resource being defined or any namespaced
-resource being in that Namespace. Alternatively, the special value `*` can be used and the resource
-will be copied into every Namespace; prefixing a Namespace name with `-` excludes that Namespace.
+The resource will be copied into each named Namespace that does already contain a matching resource
+of the same name. Note that each Namespace must be present in the manifests being processed, either
+due to a Namespace resource being defined or any namespaced resource being in that Namespace.
+Alternatively, the special value `*` can be used and the resource will be copied into every
+Namespace; prefixing a Namespace name with `-` excludes that Namespace.
 
 ### Discovery
 
