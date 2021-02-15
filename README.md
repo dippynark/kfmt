@@ -120,4 +120,3 @@ may make any changes easier to review.
 ## TODO
 
 - Mock out the filesystem for testing: https://talks.golang.org/2012/10things.slide#8
-- Merge PR branch with master before running tests
