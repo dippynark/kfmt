@@ -48,8 +48,8 @@ spec:
             git config --global credential.helper store;
             git clone $(inputs.params.REPO_URL) .;
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
-            git checkout $(inputs.params.PULL_PULL_SHA);
-            echo checked out PULL_PULL_SHA: $(inputs.params.PULL_PULL_SHA) to dir: `pwd`
+            git merge $(inputs.params.PULL_PULL_SHA);
+            echo merged PULL_PULL_SHA into master: $(inputs.params.PULL_PULL_SHA) to dir: `pwd`
           workingDir: /workspace
         - name: build-test
           image: dippynark/kfmt-build:v1.0.0
