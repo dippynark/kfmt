@@ -98,9 +98,11 @@ spec:
         - name: git-diff
           image: alpine/git:v2.30.0
           command:
-          - git
-          - diff
-          - --exit-code
+          - /bin/sh
+          args:
+          - -ce
+          - |
+            [ -n "$(git status --porcelain)" ] && exit 1
           workingDir: /workspace
         - name: kaniko-build-push
           image: gcr.io/kaniko-project/executor:v1.3.0
