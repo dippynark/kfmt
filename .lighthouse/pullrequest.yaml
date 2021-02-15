@@ -61,6 +61,14 @@ spec:
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
+        # Verify there are no changes
+        - name: git-diff
+          image: alpine/git:v2.30.0
+          command:
+          - git
+          - diff
+          - --exit-code
+          workingDir: /workspace
         volumes:
         - name: workspace
           emptyDir: {}

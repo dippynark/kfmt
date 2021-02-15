@@ -94,6 +94,14 @@ spec:
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
+        # Verify there are no changes
+        - name: git-diff
+          image: alpine/git:v2.30.0
+          command:
+          - git
+          - diff
+          - --exit-code
+          workingDir: /workspace
         - name: kaniko-build-push
           image: gcr.io/kaniko-project/executor:v1.3.0
           args:
