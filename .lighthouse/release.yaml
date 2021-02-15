@@ -95,7 +95,7 @@ spec:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
         # Verify there are no changes
-        - name: git-diff
+        - name: git-status
           image: alpine/git:v2.30.0
           command:
           - /bin/sh
