@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/dippynark/kfmt/discovery"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -79,6 +80,57 @@ metadata:
 
 	if len(yamlFileNodes[os.Stdin.Name()]) != 1 {
 		t.Error("failed to match length of filtered nodes")
+	}
+}
+
+func TestDefaultNamespaces(t *testing.T) {
+	manifests := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: test
+  namespace: test
+`
+
+	o := Options{clean: true}
+
+	resourceInspector, err := discovery.NewLocalResourceInspector()
+	if err != nil {
+		t.Error(err)
+	}
+
+	nodes, err := kio.FromBytes([]byte(manifests))
+	if err != nil {
+		t.Error(err)
+	}
+	yamlFileNodes := map[string][]*yaml.RNode{os.Stdin.Name(): nodes}
+
+	err = o.defaultNamespaces(yamlFileNodes, resourceInspector)
+	if err != nil {
+		t.Error(err)
+	}
+
+	secretNamespace, err := getNamespace(yamlFileNodes[os.Stdin.Name()][0])
+	if err != nil {
+		t.Error(err)
+	}
+
+	if secretNamespace != corev1.NamespaceDefault {
+		t.Error("failed to default Secret Namespace")
+	}
+
+	clusterRoleNamespace, err := getNamespace(yamlFileNodes[os.Stdin.Name()][1])
+	if err != nil {
+		t.Error(err)
+	}
+
+	if clusterRoleNamespace != "" {
+		t.Error("failed to default ClusterRole Namespace")
 	}
 }
 
