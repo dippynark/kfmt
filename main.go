@@ -170,19 +170,13 @@ func (o *Options) Run() error {
 	}
 
 	// Find all Namespaces either declared as resources or appearing in the metadata.namespace field
-	allNamespaces := map[string]struct{}{}
-	for yamlFile, nodes := range yamlFileNodes {
-		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
-		if err != nil {
-			log.Fatalf("Failed to find Namespaces in %s: %v", yamlFile, err)
-		}
-		for k, v := range newNamespaces {
-			allNamespaces[k] = v
-		}
+	allNamespaces, err := o.findAllNamespaces(yamlFileNodes, resourceInspector)
+	if err != nil {
+		return err
 	}
 
 	// Apply resource filters
-	err := o.filterNodes(yamlFileNodes)
+	err = o.filterNodes(yamlFileNodes)
 	if err != nil {
 		return err
 	}
@@ -219,6 +213,20 @@ func (o *Options) Run() error {
 	}
 
 	return nil
+}
+
+func (o *Options) findAllNamespaces(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) (map[string]struct{}, error) {
+	allNamespaces := map[string]struct{}{}
+	for yamlFile, nodes := range yamlFileNodes {
+		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
+		if err != nil {
+			return allNamespaces, errors.Wrapf(err, "Failed to find Namespaces in %s", yamlFile)
+		}
+		for k, v := range newNamespaces {
+			allNamespaces[k] = v
+		}
+	}
+	return allNamespaces, nil
 }
 
 func (o *Options) removeNodes(yamlFileNodes map[string][]*yaml.RNode) error {
