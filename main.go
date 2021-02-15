@@ -148,7 +148,7 @@ func (o *Options) Run() error {
 	}
 
 	// Write nodes to disk into output directory
-	err = o.writeNodes(yamlFileNodes, resourceInspector)
+	err = o.writeManifests(yamlFileNodes, resourceInspector)
 	if err != nil {
 		return err
 	}
@@ -422,7 +422,7 @@ func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 	return nil
 }
 
-func (o *Options) writeNodes(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
+func (o *Options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
 	for yamlFile, nodes := range yamlFileNodes {
 		for _, node := range nodes {
 
@@ -431,7 +431,7 @@ func (o *Options) writeNodes(yamlFileNodes map[string][]*yaml.RNode, resourceIns
 				return err
 			}
 
-			err = o.writeNode(yamlFile, outputFile, node)
+			err = o.writeManifest(yamlFile, outputFile, node)
 			if err != nil {
 				return err
 			}
@@ -696,7 +696,7 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 	return resources, nil
 }
 
-func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNode) error {
+func (o *Options) writeManifest(inputFile string, outputFile string, node *yaml.RNode) error {
 
 	if !o.overwrite {
 		// https://stackoverflow.com/a/12518877/6180803
