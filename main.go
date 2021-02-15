@@ -100,73 +100,27 @@ func (o *Options) Run() error {
 	}
 
 	// Initialise discovery to determine whether resources are namespaced or not
-	var resourceInspector discovery.ResourceInspector
-	if o.discovery {
-		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
-		if err != nil {
-			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
-		}
-		resourceInspector, err = discovery.NewAPIServerResourceInspector(restcfg)
-		if err != nil {
-			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
-		}
-	} else {
-		var err error
-		resourceInspector, err = discovery.NewLocalResourceInspector()
-		if err != nil {
-			log.Fatalf("Failed to construct locally backed resource inspector: %v", err)
-		}
+	resourceInspector, err := o.getResourceInspector()
+	if err != nil {
+		return err
 	}
 
 	// Find all YAML files specified as input
-	var yamlFiles []string
-	if len(o.inputs) > 0 {
-		for _, input := range o.inputs {
-			info, err := os.Stat(input)
-			if err != nil {
-				return err
-			}
-			switch mode := info.Mode(); {
-			case mode.IsDir():
-				inputFiles, err := listYAMLFiles(input)
-				if err != nil {
-					return err
-				}
-				yamlFiles = append(yamlFiles, inputFiles...)
-			case mode.IsRegular():
-				yamlFiles = append(yamlFiles, input)
-			default:
-				return fmt.Errorf("%s is not a directory or regular file", input)
-			}
-		}
-	} else {
-		// Read from stdin if no input specified
-		yamlFiles = []string{os.Stdin.Name()}
+	yamlFiles, err := o.findYAMLFiles()
+	if err != nil {
+		return err
 	}
 
 	// Map input files to nodes (parsed YAML documents)
-	yamlFileNodes := map[string][]*yaml.RNode{}
-	for _, yamlFile := range yamlFiles {
-		b, err := ioutil.ReadFile(yamlFile)
-		if err != nil {
-			return err
-		}
-		newNodes, err := kio.FromBytes(b)
-		if err != nil {
-			return err
-		}
-		yamlFileNodes[yamlFile] = newNodes
+	yamlFileNodes, err := o.findYAMLFileNodes(yamlFiles)
+	if err != nil {
+		return err
 	}
 
 	// Add local CRDs to discovery
-	for yamlFile, nodes := range yamlFileNodes {
-		resources, err := findResources(nodes)
-		if err != nil {
-			log.Fatalf("Failed to find CRDs in %s: %v", yamlFile, err)
-		}
-		for gvk, namespaced := range resources {
-			resourceInspector.AddResource(gvk, namespaced)
-		}
+	err = o.localDiscovery(yamlFileNodes, resourceInspector)
+	if err != nil {
+		return err
 	}
 
 	// Find all Namespaces either declared as resources or appearing in the metadata.namespace field
@@ -206,12 +160,89 @@ func (o *Options) Run() error {
 	}
 
 	// Create missing Namespace manifests
-	if o.createMissingNamespaces {
-		if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
-			return err
+	if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *Options) getResourceInspector() (discovery.ResourceInspector, error) {
+	var resourceInspector discovery.ResourceInspector
+	if o.discovery {
+		restcfg, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
+		if err != nil {
+			log.Fatalf("Failed to build kubernetes REST client config: %v", err)
+		}
+		resourceInspector, err = discovery.NewAPIServerResourceInspector(restcfg)
+		if err != nil {
+			log.Fatalf("Failed to construct APIServer backed resource inspector: %v", err)
+		}
+	} else {
+		var err error
+		resourceInspector, err = discovery.NewLocalResourceInspector()
+		if err != nil {
+			log.Fatalf("Failed to construct locally backed resource inspector: %v", err)
 		}
 	}
 
+	return resourceInspector, nil
+}
+
+func (o *Options) findYAMLFileNodes(yamlFiles []string) (map[string][]*yaml.RNode, error) {
+	yamlFileNodes := map[string][]*yaml.RNode{}
+	for _, yamlFile := range yamlFiles {
+		b, err := ioutil.ReadFile(yamlFile)
+		if err != nil {
+			return yamlFileNodes, err
+		}
+		newNodes, err := kio.FromBytes(b)
+		if err != nil {
+			return yamlFileNodes, err
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
+	return yamlFileNodes, nil
+}
+
+func (o *Options) findYAMLFiles() ([]string, error) {
+	var yamlFiles []string
+	if len(o.inputs) > 0 {
+		for _, input := range o.inputs {
+			info, err := os.Stat(input)
+			if err != nil {
+				return yamlFiles, err
+			}
+			switch mode := info.Mode(); {
+			case mode.IsDir():
+				inputFiles, err := listYAMLFiles(input)
+				if err != nil {
+					return yamlFiles, err
+				}
+				yamlFiles = append(yamlFiles, inputFiles...)
+			case mode.IsRegular():
+				yamlFiles = append(yamlFiles, input)
+			default:
+				return yamlFiles, fmt.Errorf("%s is not a directory or regular file", input)
+			}
+		}
+	} else {
+		// Read from stdin if no input specified
+		yamlFiles = []string{os.Stdin.Name()}
+	}
+	return yamlFiles, nil
+}
+
+func (o *Options) localDiscovery(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
+	for yamlFile, nodes := range yamlFileNodes {
+		resources, err := findResources(nodes)
+		if err != nil {
+			return errors.Wrapf(err, "failed to find CRDs in %s", yamlFile)
+		}
+		for gvk, namespaced := range resources {
+			resourceInspector.AddResource(gvk, namespaced)
+		}
+	}
 	return nil
 }
 
@@ -220,7 +251,7 @@ func (o *Options) findAllNamespaces(yamlFileNodes map[string][]*yaml.RNode, reso
 	for yamlFile, nodes := range yamlFileNodes {
 		newNamespaces, err := o.findNamespaces(nodes, resourceInspector)
 		if err != nil {
-			return allNamespaces, errors.Wrapf(err, "Failed to find Namespaces in %s", yamlFile)
+			return allNamespaces, errors.Wrapf(err, "failed to find Namespaces in %s", yamlFile)
 		}
 		for k, v := range newNamespaces {
 			allNamespaces[k] = v
@@ -560,23 +591,25 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 
 // createMissingNamespaceManifests creates missing Namespace manifests
 func (o *Options) createMissingNamespaceManifests(allNamespaces map[string]struct{}) error {
-	for namespace := range allNamespaces {
-		namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
+	if o.createMissingNamespaces {
+		for namespace := range allNamespaces {
+			namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
-		if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
-			err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
-			if err != nil {
-				return err
-			}
+			if _, err := os.Stat(namespaceFile); os.IsNotExist(err) {
+				err = os.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
+				if err != nil {
+					return err
+				}
 
-			namespaceManifest := fmt.Sprintf(manifestSeparator+`apiVersion: v1
+				namespaceManifest := fmt.Sprintf(manifestSeparator+`apiVersion: v1
 kind: Namespace
 metadata:
   name: %s
 `, namespace)
-			err = ioutil.WriteFile(namespaceFile, []byte(namespaceManifest), defaultFilePerms)
-			if err != nil {
-				return err
+				err = ioutil.WriteFile(namespaceFile, []byte(namespaceManifest), defaultFilePerms)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
