@@ -1,3 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+  - port: 80
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,3 +29,12 @@ spec:
         image: nginx
         ports:
         - containerPort: 80
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: nginx
+spec:
+  hard:
+    pods: "10"

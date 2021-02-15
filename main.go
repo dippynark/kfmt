@@ -181,11 +181,189 @@ func (o *Options) Run() error {
 		}
 	}
 
-	// Write each node into output directory structure, cleaning up input files if specified
+	// Apply resource filters
 	for yamlFile, nodes := range yamlFileNodes {
-		err := o.moveFile(yamlFile, nodes, resourceInspector, allNamespaces)
-		if err != nil {
-			return err
+		filteredNodes := []*yaml.RNode{}
+		for _, node := range nodes {
+			isFiltered, err := o.isFiltered(node)
+			if err != nil {
+				return err
+			}
+			if isFiltered {
+				continue
+			}
+			filteredNodes = append(filteredNodes, node)
+		}
+		yamlFileNodes[yamlFile] = filteredNodes
+	}
+
+	// Namespace defaulting
+	for yamlFile, nodes := range yamlFileNodes {
+		newNodes := []*yaml.RNode{}
+		for _, node := range nodes {
+
+			namespace, err := getNamespace(node)
+			if err != nil {
+				return errors.Wrap(err, "failed to get namespace")
+			}
+
+			gvk, err := getGVK(node)
+			if err != nil {
+				return err
+			}
+
+			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
+			if err != nil {
+				return err
+			}
+
+			if isNamespaced {
+				if namespace == "" {
+					if o.namespace != "" {
+						namespace = o.namespace
+					} else {
+						namespace = corev1.NamespaceDefault
+					}
+					err = node.SetNamespace(namespace)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				if namespace != "" {
+					if o.clean {
+						err = node.SetNamespace("")
+						if err != nil {
+							return err
+						}
+						namespace = ""
+					}
+				}
+
+				if o.strict {
+					if namespace != "" {
+						return fmt.Errorf("metadata.namespace field should not be set for cluster-scoped resource: %s", gvk.String())
+					}
+				}
+			}
+			newNodes = append(newNodes, node)
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
+
+	// Apply annotation
+	for yamlFile, nodes := range yamlFileNodes {
+		newNodes := []*yaml.RNode{}
+		for _, node := range nodes {
+
+			gvk, err := getGVK(node)
+			if err != nil {
+				return err
+			}
+
+			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
+			if err != nil {
+				return err
+			}
+
+			if isNamespaced {
+				originalNamespace, err := getNamespace(node)
+				if err != nil {
+					return errors.Wrap(err, "failed to get namespace")
+				}
+				if originalNamespace == "" {
+					return errors.New("failed to get namespace")
+				}
+
+				annotations, err := getAnnotations(node)
+				if err != nil {
+					return err
+				}
+				namespaces := map[string]struct{}{originalNamespace: {}}
+				excludedNamespaces := map[string]struct{}{}
+				namespacesAnnotation, ok := annotations[annotationNamespacesKey]
+				if ok {
+					for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
+						if namespacesAnnotationNamespace == annotationNamespacesAll {
+							for namespace := range allNamespaces {
+								namespaces[namespace] = struct{}{}
+							}
+						} else if strings.HasPrefix(namespacesAnnotationNamespace, "-") {
+							excludedNamespaces[strings.TrimPrefix(namespacesAnnotationNamespace, "-")] = struct{}{}
+						} else {
+							if _, ok := allNamespaces[namespacesAnnotationNamespace]; !ok {
+								// We cannot allow this annotation to create new Namespaces because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
+								return fmt.Errorf("Namespace \"%s\" not found when processing annotation %s", namespacesAnnotationNamespace, annotationNamespacesKey)
+							}
+							namespaces[namespacesAnnotationNamespace] = struct{}{}
+						}
+					}
+					// Clear annotation
+					delete(annotations, annotationNamespacesKey)
+					node.SetAnnotations(annotations)
+				}
+
+				for namespace := range namespaces {
+					// Do not copy if namespace is excluded
+					if _, ok := excludedNamespaces[namespace]; ok {
+						continue
+					}
+
+					// Check if node matches another node once the namespace is modified. This allows `*` to
+					// be used to specifiy a Namespace default but allow it to be overridden on a
+					// per-Namespace basis
+					nodeCopy := node.Copy()
+					err = nodeCopy.SetNamespace(namespace)
+					if err != nil {
+						return err
+					}
+					if namespace != originalNamespace {
+						clashing, err := o.isClashing(nodeCopy, yamlFileNodes, resourceInspector)
+						if err != nil {
+							return err
+						}
+
+						if clashing {
+							continue
+						}
+					}
+
+					newNodes = append(newNodes, nodeCopy)
+				}
+			} else {
+				newNodes = append(newNodes, node)
+			}
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
+
+	// Write out nodes
+	for yamlFile, nodes := range yamlFileNodes {
+		for _, node := range nodes {
+
+			outputFile, err := o.getOutputFile(node, resourceInspector)
+			if err != nil {
+				return err
+			}
+
+			err = o.writeNode(yamlFile, outputFile, node)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove processed files
+	if o.remove {
+		for yamlFile := range yamlFileNodes {
+			// Ignore stdin
+			if yamlFile == os.Stdin.Name() {
+				continue
+			}
+			err := os.Remove(yamlFile)
+			if err != nil {
+				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
+			}
 		}
 	}
 
@@ -197,6 +375,74 @@ func (o *Options) Run() error {
 	}
 
 	return nil
+}
+
+func (o *Options) getOutputFile(node *yaml.RNode, resourceInspector discovery.ResourceInspector) (string, error) {
+	var outputFile string
+
+	gvk, err := getGVK(node)
+	if err != nil {
+		return outputFile, err
+	}
+
+	isNamespaced, err := resourceInspector.IsNamespaced(gvk)
+	if err != nil {
+		return outputFile, err
+	}
+
+	name, err := getName(node)
+	if err != nil {
+		return outputFile, errors.Wrap(err, "failed to get name")
+	}
+
+	namespace, err := getNamespace(node)
+	if err != nil {
+		return outputFile, errors.Wrap(err, "failed to get namespace")
+	}
+
+	if isNamespaced {
+		outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
+	} else {
+		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
+	}
+
+	return outputFile, nil
+}
+
+func (o *Options) isClashing(candidateNode *yaml.RNode, yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) (bool, error) {
+	candidateOutputFile, err := o.getOutputFile(candidateNode, resourceInspector)
+	if err != nil {
+		return false, err
+	}
+
+	for _, nodes := range yamlFileNodes {
+		for _, node := range nodes {
+			outputFile, err := o.getOutputFile(node, resourceInspector)
+			if err != nil {
+				return false, err
+			}
+
+			if candidateOutputFile == outputFile {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (o *Options) isFiltered(node *yaml.RNode) (bool, error) {
+	gvk, err := getGVK(node)
+	if err != nil {
+		return false, err
+	}
+
+	for _, filter := range o.filters {
+		if gvk.GroupKind().String() == filter {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // findNamespaces finds used namespaces
@@ -369,156 +615,8 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 	return resources, nil
 }
 
-// moveFile moves the input file into the right place in the output structure
-func (o *Options) moveFile(inputFile string, nodes []*yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
-
-	// Put each manifest into right location
-	for _, node := range nodes {
-		err := o.moveManifest(inputFile, node, resourceInspector, allNamespaces)
-		if err != nil {
-			return errors.Wrapf(err, "failed to process input file %s", inputFile)
-		}
-	}
-
-	// Remove processed file
-	if o.remove {
-		err := os.Remove(inputFile)
-		if err != nil {
-			return errors.Wrapf(err, "failed to remove input file %s", inputFile)
-		}
-	}
-
-	return nil
-}
-
-func (o *Options) moveManifest(inputFile string, node *yaml.RNode, resourceInspector discovery.ResourceInspector, allNamespaces map[string]struct{}) error {
-
-	apiVersion, err := getAPIVersion(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get apiVersion")
-	}
-
-	kind, err := getKind(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get kind")
-	}
-
-	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
-
-	// Ignore filtered resources
-	isFiltered := false
-	for _, filter := range o.filters {
-		if gvk.GroupKind().String() == filter {
-			isFiltered = true
-			break
-		}
-	}
-	if isFiltered {
-		return nil
-	}
-
-	namespace, err := getNamespace(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get namespace")
-	}
-
-	name, err := getName(node)
-	if err != nil {
-		return errors.Wrap(err, "failed to get name")
-	}
-
-	isNamespaced, err := resourceInspector.IsNamespaced(gvk)
-	if err != nil {
-		return err
-	}
-
-	isClusterScoped := !isNamespaced
-	var outputFile string
-	if isClusterScoped {
-		if namespace != "" {
-			if o.clean {
-				err = node.SetNamespace("")
-				if err != nil {
-					return err
-				}
-				namespace = ""
-			}
-		}
-
-		if o.strict {
-			if namespace != "" {
-				return fmt.Errorf("namespace field should not be set for cluster-scoped resource: %s/%s", strings.ToLower(kind), name)
-			}
-		}
-
-		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
-		err = o.writeNode(inputFile, outputFile, node)
-		if err != nil {
-			return err
-		}
-	} else {
-		if namespace == "" {
-			if o.namespace != "" {
-				namespace = o.namespace
-			} else {
-				namespace = corev1.NamespaceDefault
-			}
-			err = node.SetNamespace(namespace)
-			if err != nil {
-				return err
-			}
-		}
-
-		annotations, err := getAnnotations(node)
-		if err != nil {
-			return err
-		}
-		namespaces := map[string]struct{}{namespace: {}}
-		excludedNamespaces := map[string]struct{}{}
-		namespacesAnnotation, ok := annotations[annotationNamespacesKey]
-		if ok {
-			for _, namespacesAnnotationNamespace := range strings.Split(namespacesAnnotation, ",") {
-				if namespacesAnnotationNamespace == annotationNamespacesAll {
-					for namespace := range allNamespaces {
-						namespaces[namespace] = struct{}{}
-					}
-				} else if strings.HasPrefix(namespacesAnnotationNamespace, "-") {
-					excludedNamespaces[strings.TrimPrefix(namespacesAnnotationNamespace, "-")] = struct{}{}
-				} else {
-					if _, ok := allNamespaces[namespacesAnnotationNamespace]; !ok {
-						// We cannot allow this annotation to create new Namespaces because otherwise the meaning of "*" (annotationNamespacesAll) is inconsistent
-						return fmt.Errorf("Namespace \"%s\" not found when processing annotation %s", namespacesAnnotationNamespace, annotationNamespacesKey)
-					}
-					namespaces[namespacesAnnotationNamespace] = struct{}{}
-				}
-			}
-			// Clear annotation
-			delete(annotations, annotationNamespacesKey)
-			node.SetAnnotations(annotations)
-		}
-
-		for namespace := range namespaces {
-
-			// Do not copy if Namespaces is excluded
-			if _, ok := excludedNamespaces[namespace]; ok {
-				continue
-			}
-			err = node.SetNamespace(namespace)
-			if err != nil {
-				return err
-			}
-			outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
-			err = o.writeNode(inputFile, outputFile, node)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func (o *Options) writeNode(inputFile string, outputFile string, node *yaml.RNode) error {
+
 	if !o.overwrite {
 		// https://stackoverflow.com/a/12518877/6180803
 		if _, err := os.Stat(outputFile); err == nil {

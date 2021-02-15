@@ -1,5 +1,5 @@
 ---
-# Source: input/resourcequota.yaml
+# Source: input/default-resourcequota.yaml
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -7,4 +7,4 @@ metadata:
   namespace: default
 spec:
   hard:
-    pods: "10"
+    pods: "20"

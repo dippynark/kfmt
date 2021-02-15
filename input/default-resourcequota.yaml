@@ -6,4 +6,4 @@ metadata:
     kfmt.dev/namespaces: "*"
 spec:
   hard:
-    pods: "10"
+    pods: "20"

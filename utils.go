@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -188,4 +189,20 @@ func isWhitespaceOrComments(input string) bool {
 		}
 	}
 	return true
+}
+
+func getGVK(node *yaml.RNode) (gvk schema.GroupVersionKind, err error) {
+	apiVersion, err := getAPIVersion(node)
+	if err != nil {
+		return gvk, errors.Wrap(err, "failed to get apiVersion")
+	}
+
+	kind, err := getKind(node)
+	if err != nil {
+		return gvk, errors.Wrap(err, "failed to get kind")
+	}
+
+	gvk = schema.FromAPIVersionAndKind(apiVersion, kind)
+
+	return gvk, nil
 }

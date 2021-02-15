@@ -1,10 +1,10 @@
 ---
-# Source: input/nginx.yaml
+# Source: input/default-resourcequota.yaml
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: pods-high
-  namespace: nginx
+  namespace: test
 spec:
   hard:
-    pods: "10"
+    pods: "20"
