@@ -182,76 +182,80 @@ func (o *Options) Run() error {
 	}
 
 	// Apply resource filters
-	for yamlFile, nodes := range yamlFileNodes {
-		filteredNodes := []*yaml.RNode{}
-		for _, node := range nodes {
-			isFiltered, err := o.isFiltered(node)
-			if err != nil {
-				return err
-			}
-			if isFiltered {
-				continue
-			}
-			filteredNodes = append(filteredNodes, node)
-		}
-		yamlFileNodes[yamlFile] = filteredNodes
+	err := o.filterNodes(yamlFileNodes)
+	if err != nil {
+		return err
 	}
 
 	// Namespace defaulting
-	for yamlFile, nodes := range yamlFileNodes {
-		newNodes := []*yaml.RNode{}
-		for _, node := range nodes {
-
-			namespace, err := getNamespace(node)
-			if err != nil {
-				return errors.Wrap(err, "failed to get namespace")
-			}
-
-			gvk, err := getGVK(node)
-			if err != nil {
-				return err
-			}
-
-			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
-			if err != nil {
-				return err
-			}
-
-			if isNamespaced {
-				if namespace == "" {
-					if o.namespace != "" {
-						namespace = o.namespace
-					} else {
-						namespace = corev1.NamespaceDefault
-					}
-					err = node.SetNamespace(namespace)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				if namespace != "" {
-					if o.clean {
-						err = node.SetNamespace("")
-						if err != nil {
-							return err
-						}
-						namespace = ""
-					}
-				}
-
-				if o.strict {
-					if namespace != "" {
-						return fmt.Errorf("metadata.namespace field should not be set for cluster-scoped resource: %s", gvk.String())
-					}
-				}
-			}
-			newNodes = append(newNodes, node)
-		}
-		yamlFileNodes[yamlFile] = newNodes
+	err = o.defaultNamespaces(yamlFileNodes, resourceInspector)
+	if err != nil {
+		return err
 	}
 
-	// Apply annotation
+	// Apply `kfmt.dev/namespaces` annotation
+	err = o.mirrorNodes(yamlFileNodes, allNamespaces, resourceInspector)
+	if err != nil {
+		return err
+	}
+
+	// Write out nodes
+	err = o.writeNodes(yamlFileNodes, resourceInspector)
+	if err != nil {
+		return err
+	}
+
+	// Remove processed files
+	err = o.removeNodes(yamlFileNodes)
+	if err != nil {
+		return err
+	}
+
+	// Create missing Namespace manifests
+	if o.createMissingNamespaces {
+		if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *Options) removeNodes(yamlFileNodes map[string][]*yaml.RNode) error {
+	if o.remove {
+		for yamlFile := range yamlFileNodes {
+			// Ignore stdin
+			if yamlFile == os.Stdin.Name() {
+				continue
+			}
+			err := os.Remove(yamlFile)
+			if err != nil {
+				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
+			}
+		}
+	}
+	return nil
+}
+
+func (o *Options) writeNodes(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
+	for yamlFile, nodes := range yamlFileNodes {
+		for _, node := range nodes {
+
+			outputFile, err := o.getOutputFile(node, resourceInspector)
+			if err != nil {
+				return err
+			}
+
+			err = o.writeNode(yamlFile, outputFile, node)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespaces map[string]struct{}, resourceInspector discovery.ResourceInspector) error {
 	for yamlFile, nodes := range yamlFileNodes {
 		newNodes := []*yaml.RNode{}
 		for _, node := range nodes {
@@ -336,44 +340,80 @@ func (o *Options) Run() error {
 		}
 		yamlFileNodes[yamlFile] = newNodes
 	}
+	return nil
+}
 
-	// Write out nodes
+func (o *Options) filterNodes(yamlFileNodes map[string][]*yaml.RNode) error {
 	for yamlFile, nodes := range yamlFileNodes {
+		filteredNodes := []*yaml.RNode{}
 		for _, node := range nodes {
-
-			outputFile, err := o.getOutputFile(node, resourceInspector)
+			isFiltered, err := o.isFiltered(node)
 			if err != nil {
 				return err
 			}
-
-			err = o.writeNode(yamlFile, outputFile, node)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Remove processed files
-	if o.remove {
-		for yamlFile := range yamlFileNodes {
-			// Ignore stdin
-			if yamlFile == os.Stdin.Name() {
+			if isFiltered {
 				continue
 			}
-			err := os.Remove(yamlFile)
+			filteredNodes = append(filteredNodes, node)
+		}
+		yamlFileNodes[yamlFile] = filteredNodes
+	}
+	return nil
+}
+
+func (o *Options) defaultNamespaces(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector) error {
+	for yamlFile, nodes := range yamlFileNodes {
+		newNodes := []*yaml.RNode{}
+		for _, node := range nodes {
+
+			namespace, err := getNamespace(node)
 			if err != nil {
-				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
+				return errors.Wrap(err, "failed to get namespace")
 			}
-		}
-	}
 
-	// Create missing Namespace manifests
-	if o.createMissingNamespaces {
-		if err := o.createMissingNamespaceManifests(allNamespaces); err != nil {
-			return err
-		}
-	}
+			gvk, err := getGVK(node)
+			if err != nil {
+				return err
+			}
 
+			isNamespaced, err := resourceInspector.IsNamespaced(gvk)
+			if err != nil {
+				return err
+			}
+
+			if isNamespaced {
+				if namespace == "" {
+					if o.namespace != "" {
+						namespace = o.namespace
+					} else {
+						namespace = corev1.NamespaceDefault
+					}
+					err = node.SetNamespace(namespace)
+					if err != nil {
+						return err
+					}
+				}
+			} else {
+				if namespace != "" {
+					if o.clean {
+						err = node.SetNamespace("")
+						if err != nil {
+							return err
+						}
+						namespace = ""
+					}
+				}
+
+				if o.strict {
+					if namespace != "" {
+						return fmt.Errorf("metadata.namespace field should not be set for cluster-scoped resource: %s", gvk.String())
+					}
+				}
+			}
+			newNodes = append(newNodes, node)
+		}
+		yamlFileNodes[yamlFile] = newNodes
+	}
 	return nil
 }
 
@@ -395,12 +435,12 @@ func (o *Options) getOutputFile(node *yaml.RNode, resourceInspector discovery.Re
 		return outputFile, errors.Wrap(err, "failed to get name")
 	}
 
-	namespace, err := getNamespace(node)
-	if err != nil {
-		return outputFile, errors.Wrap(err, "failed to get namespace")
-	}
-
 	if isNamespaced {
+		namespace, err := getNamespace(node)
+		if err != nil {
+			return outputFile, errors.Wrap(err, "failed to get namespace")
+		}
+
 		outputFile = o.getNamespacedOutputFile(name, namespace, gvk, resourceInspector)
 	} else {
 		outputFile = o.getNonNamespacedOutputFile(name, gvk, resourceInspector)
