@@ -102,7 +102,10 @@ spec:
           args:
           - -ce
           - |
-            [ -n "$(git status --porcelain)" ] && git status --porcelain && exit 1
+            if [ -n "$(git status --porcelain)" ]; then
+              git status --porcelain
+              exit 1
+            fi
           workingDir: /workspace
         - name: kaniko-build-push
           image: gcr.io/kaniko-project/executor:v1.3.0
