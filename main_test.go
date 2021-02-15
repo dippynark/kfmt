@@ -1,12 +1,14 @@
 package main
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/dippynark/kfmt/discovery"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/kio"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 func TestFindNamespaces(t *testing.T) {
@@ -40,7 +42,43 @@ metadata:
 		t.Error(err)
 	}
 	if !reflect.DeepEqual(namespaces, expectedNamespaces) {
-		t.Error("failed to find namespaces")
+		t.Error("failed to find expected namespaces")
+	}
+}
+
+func TestFilterNodes(t *testing.T) {
+	manifests := `
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+`
+
+	o := Options{filters: []string{"Deployment.apps", "Secret"}}
+
+	nodes, err := kio.FromBytes([]byte(manifests))
+	if err != nil {
+		t.Error(err)
+	}
+	yamlFileNodes := map[string][]*yaml.RNode{os.Stdin.Name(): nodes}
+
+	err = o.filterNodes(yamlFileNodes)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(yamlFileNodes[os.Stdin.Name()]) != 1 {
+		t.Error("failed to match length of filtered nodes")
 	}
 }
 
@@ -75,6 +113,6 @@ spec:
 	}
 
 	if !reflect.DeepEqual(resources, expectedResources) {
-		t.Error("failed to find resources")
+		t.Error("failed to find expected resources")
 	}
 }
