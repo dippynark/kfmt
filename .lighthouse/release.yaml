@@ -83,7 +83,6 @@ spec:
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
             git checkout $(inputs.params.PULL_BASE_REF);
             echo checked out PULL_BASE_REF: $(inputs.params.PULL_BASE_REF) to dir: `pwd`
-            sleep 10000000
           workingDir: /workspace
         - name: build-test
           image: dippynark/kfmt-build:v1.0.0
