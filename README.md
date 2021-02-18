@@ -24,6 +24,24 @@ image](https://hub.docker.com/repository/docker/dippynark/kfmt).
 
 ## Usage
 
+The simplest usage is to structure manifests from stdin:
+
+```sh
+cat <<EOF | kfmt -o output
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test
+EOF
+```
+
+The full help text is show below:
+
 ```text
 kfmt organises Kubernetes manifests into a standard format.
 
@@ -34,19 +52,20 @@ Flags:
       --clean                       Remove metadata.namespace field from non-namespaced resources
       --comment                     Comment each output file with the path of the corresponding input file
       --create-missing-namespaces   Create missing Namespace manifests
-      --discovery                   Use API Server for discovery
+  -d, --discovery                   Use API Server for discovery
   -f, --filter stringArray          Filter kind.group from output manifests (e.g. Deployment.apps or Secret)
-  -h, --help                        Help for kfmt
+  -h, --help                        Print help text
   -i, --input stringArray           Input files or directories containing manifests. If no input is specified /dev/stdin will be used
-  -k, --kubeconfig string           Path to the kubeconfig file used for discovery (default "/Users/luke/.kube/config")
+  -k, --kubeconfig string           Path to the kubeconfig file used for discovery (default "/.kube/config")
   -n, --namespace string            Set metadata.namespace field if missing from namespaced resources (default "default")
   -o, --output string               Output directory to write organised manifests
       --overwrite                   Overwrite existing output files
       --remove                      Remove processed input files
       --strict                      Require metadata.namespace field is not set for non-namespaced resources
+  -v, --version                     Print version
 ```
 
-Namespaced resources in any input can be annotated as follows:
+Namespaced resources can be annotated as follows:
 
 ```
 kfmt.dev/namespaces: "namespace1,namespace2,..."
