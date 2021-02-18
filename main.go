@@ -20,6 +20,9 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+// Set to `git describe --tags`
+var version = "v0.0.0"
+
 const (
 	// Namespaces to copy resource into
 	annotationNamespacesKey = "kfmt.dev/namespaces"
@@ -36,8 +39,6 @@ const (
 	defaultDirectoryPerms = 0755
 )
 
-var quotes = []string{"'", "\""}
-
 type Options struct {
 	output                  string
 	inputs                  []string
@@ -51,6 +52,7 @@ type Options struct {
 	createMissingNamespaces bool
 	discovery               bool
 	kubeconfig              string
+	version                 bool
 }
 
 func main() {
@@ -65,7 +67,8 @@ func main() {
 		},
 	}
 
-	cmd.Flags().BoolP("help", "h", false, "Help for kfmt")
+	cmd.Flags().BoolP("help", "h", false, "Print help text")
+	cmd.Flags().BoolVarP(&o.version, "version", "v", false, "Print version")
 	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing manifests. If no input is specified %s will be used", os.Stdin.Name()))
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write organised manifests")
 	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
@@ -93,6 +96,11 @@ func main() {
 }
 
 func (o *Options) Run() error {
+
+	if o.version {
+		fmt.Println(version)
+		return nil
+	}
 
 	if o.output == "" {
 		return errors.Errorf("output directory not specified")

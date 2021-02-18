@@ -9,6 +9,8 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+var quotes = []string{"'", "\""}
+
 func getAnnotations(node *yaml.RNode) (map[string]string, error) {
 	annotations := map[string]string{}
 

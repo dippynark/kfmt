@@ -6,6 +6,9 @@ OUTPUT_DIR = output
 K8S_DIR = k8s.io
 WORK_DIR = /workspace
 
+VERSION = $(shell git describe --tags)
+BUILD_FLAGS = -tags netgo -ldflags "-X main.version=$(VERSION)"
+
 generate:
 	mkdir -p $(K8S_DIR)
 	ls $(K8S_DIR)/api || git clone https://github.com/kubernetes/api $(K8S_DIR)/api
@@ -15,12 +18,12 @@ generate:
 	go fmt discovery/local_discovery.go
 
 build:
-	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt -tags netgo
+	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS)
 
 release:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 -tags netgo
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 -tags netgo
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe -tags netgo
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS)
 	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-windows-amd64.exe > checksums.txt
 
 test: go_test e2e_test
