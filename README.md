@@ -34,9 +34,15 @@ metadata:
   name: test
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: test
+  namespace: test
 EOF
 ```
 
