@@ -736,7 +736,7 @@ func (o *Options) writeManifest(inputFile string, outputFile string, node *yaml.
 
 func (o *Options) getNonNamespacedOutputFile(name string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
 	subdirectory := pluralise(strings.ToLower(gvk.Kind))
-	// Prefix with group if core
+	// Prefix with group if not core
 	if !resourceInspector.IsCoreGroup(gvk.Group) {
 		subdirectory = pluralise(strings.ToLower(gvk.Kind)) + "." + gvk.Group
 	}
@@ -745,7 +745,7 @@ func (o *Options) getNonNamespacedOutputFile(name string, gvk schema.GroupVersio
 
 func (o *Options) getNamespacedOutputFile(name, namespace string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
 	fileName := strings.ToLower(gvk.Kind) + "-" + name + ".yaml"
-	// Prefix with group if core
+	// Prefix with group if not core
 	if !resourceInspector.IsCoreGroup(gvk.Group) {
 		fileName = strings.ToLower(gvk.Kind) + "." + gvk.Group + "-" + name + ".yaml"
 	}
