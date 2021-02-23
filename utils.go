@@ -21,7 +21,7 @@ func getAnnotations(node *yaml.RNode) (map[string]string, error) {
 
 	m := valueNode.Map()
 	for k, v := range m {
-		// Ignore nil annotations
+		// Ignore empty annotations
 		if v == nil {
 			continue
 		}
