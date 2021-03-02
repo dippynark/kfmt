@@ -24,7 +24,7 @@ image](https://hub.docker.com/repository/docker/dippynark/kfmt).
 
 ## Usage
 
-The simplest usage is to structure manifests from stdin:
+The simplest usage is to format manifests coming from stdin:
 
 ```sh
 cat <<EOF | kfmt -o output
