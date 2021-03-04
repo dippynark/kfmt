@@ -212,10 +212,8 @@ func (o *Options) findYAMLFiles() ([]string, error) {
 					return yamlFiles, err
 				}
 				yamlFiles = append(yamlFiles, inputFiles...)
-			case mode.IsRegular():
-				yamlFiles = append(yamlFiles, input)
 			default:
-				return yamlFiles, fmt.Errorf("%s is not a directory or regular file", input)
+				yamlFiles = append(yamlFiles, input)
 			}
 		}
 	} else {
