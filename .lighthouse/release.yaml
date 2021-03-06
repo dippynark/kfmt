@@ -138,11 +138,11 @@ spec:
             fi
 
             # Create release description with the tag as the title
-            echo "# $(inputs.params.tag)" > release.md
+            echo "$(inputs.params.tag)" > release.txt
 
             echo "Creating release $(inputs.params.tag)"
             hub release create \
-              --file release.md \
+              --file release.txt \
               --attach bin/checksums.txt \
               --attach bin/kfmt-darwin-amd64 \
               --attach bin/kfmt-linux-amd64 \
