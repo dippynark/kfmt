@@ -84,12 +84,13 @@ spec:
             git checkout $(inputs.params.PULL_BASE_REF);
             echo checked out PULL_BASE_REF: $(inputs.params.PULL_BASE_REF) to dir: `pwd`
           workingDir: /workspace
-        - name: build-test
+        - name: build-test-release
           image: dippynark/kfmt-build:v1.0.0
           command:
           - make
           - build
           - test
+          - release
           workingDir: /workspace
           volumeMounts:
           - name: go-pkg-mod
@@ -118,6 +119,36 @@ spec:
           volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker
+        # https://github.com/tektoncd/catalog/blob/master/task/create-github-release/0.1/create-github-release.yaml
+        - name: github-release
+          workingDir: /workspace
+          image: quay.io/diagrawa/github-hub@sha256:a002e05e3c3362f49dc31b8c16c10d76c6dbd854fdb0f596eaae8ac8b792adfb #tag: latest
+          env:
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: tekton-git
+                key: password
+          script: |
+            #!/usr/bin/env bash
+            set -ex
+
+            if [ "$(inputs.params.tag)" = "latest" ]; then
+              exit 0
+            fi
+
+            # Create empty release description
+            touch release.md
+
+            echo "Creating release $(inputs.params.tag)"
+            hub release create \
+              --commitish $(inputs.params.tag) \
+              --file release.md \
+              --attach bin/checksums.txt \
+              --attach bin/kfmt-darwin-amd64 \
+              --attach bin/kfmt-linux-amd64 \
+              --attach bin/kfmt-windows-amd64.exe \
+              $(inputs.params.tag)
         volumes:
         - name: workspace
           emptyDir: {}
