@@ -138,7 +138,7 @@ spec:
             fi
 
             # Create empty release description
-            touch release.md
+            echo "# $(inputs.params.tag)" > release.md
 
             echo "Creating release $(inputs.params.tag)"
             hub release create \
