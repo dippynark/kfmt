@@ -103,9 +103,9 @@ Similarly, this cached discovery information can be augmented with all available
 kubectl api-versions > api-versions.txt
 ```
 
-In addition, kfmt supports the `--discovery` flag to use the Kubernetes discovery API. kfmt will
-only use the Kubernetes discovery API if the required discovery information is not provided using
-another method.
+In addition, kfmt supports the `--discovery` flag to enable use of the Kubernetes discovery API.
+kfmt will only attempt to use the Kubernetes discovery API if the required discovery information is
+not provided using another method.
 
 ## Format
 
