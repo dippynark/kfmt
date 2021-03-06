@@ -104,7 +104,7 @@ kubectl api-versions > api-versions.txt
 ```
 
 In addition, kfmt supports the `--discovery` flag to use the Kubernetes discovery API. kfmt will
-only connect to the Kubernetes API if the required discovery information is not provided using
+only use the Kubernetes discovery API if the required discovery information is not provided using
 another method.
 
 ## Format
