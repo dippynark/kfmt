@@ -12,27 +12,27 @@ import (
 
 // LocalResourceInspector implements ResourceInspector using local manifests
 type LocalResourceInspector struct {
-	resources map[schema.GroupVersionKind]bool
+	gvkToScope map[schema.GroupVersionKind]bool
 }
 
 func NewLocalResourceInspector() (*LocalResourceInspector, error) {
-	cachedResources, err := parseCachedAPIResources()
+	cachedGVKToScope, err := parseCachedAPIResources()
 	if err != nil {
 		return nil, err
 	}
 
-	resources := copyMap(coreResources)
-	for k, v := range cachedResources {
-		resources[k] = v
+	gvkToScope := copyMap(coreGVKToScope)
+	for k, v := range cachedGVKToScope {
+		gvkToScope[k] = v
 	}
 
 	return &LocalResourceInspector{
-		resources: resources,
+		gvkToScope: gvkToScope,
 	}, nil
 }
 
 func (l *LocalResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool, error) {
-	namespaced, ok := l.resources[gvk]
+	namespaced, ok := l.gvkToScope[gvk]
 	if !ok {
 		return false, fmt.Errorf("could not find REST mapping for resource %v", gvk.String())
 	}
@@ -41,7 +41,7 @@ func (l *LocalResourceInspector) IsNamespaced(gvk schema.GroupVersionKind) (bool
 }
 
 func (l *LocalResourceInspector) IsCoreGroup(group string) bool {
-	for gvk, _ := range coreResources {
+	for gvk, _ := range coreGVKToScope {
 		if group == gvk.Group {
 			return true
 		}
@@ -50,8 +50,8 @@ func (l *LocalResourceInspector) IsCoreGroup(group string) bool {
 	return false
 }
 
-func (l *LocalResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {
-	l.resources[gvk] = namespaced
+func (l *LocalResourceInspector) AddGVKToScope(gvk schema.GroupVersionKind, namespaced bool) {
+	l.gvkToScope[gvk] = namespaced
 }
 
 var _ ResourceInspector = &LocalResourceInspector{}
@@ -66,19 +66,19 @@ func copyMap(m map[schema.GroupVersionKind]bool) map[schema.GroupVersionKind]boo
 }
 
 func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
-	cachedResources := map[schema.GroupVersionKind]bool{}
+	cachedGVKToScope := map[schema.GroupVersionKind]bool{}
 
 	// TODO: allow paths to be user-specified
 	apiResourcesFile := "api-resources.txt"
 	apiVersionsFile := "api-versions.txt"
 
 	if _, err := os.Stat(apiResourcesFile); os.IsNotExist(err) {
-		return cachedResources, nil
+		return cachedGVKToScope, nil
 	}
 
 	file, err := os.Open(apiResourcesFile)
 	if err != nil {
-		return cachedResources, err
+		return cachedGVKToScope, err
 	}
 	defer file.Close()
 
@@ -96,11 +96,11 @@ func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
 
 		gv, err := schema.ParseGroupVersion(words[len(words)-3])
 		if err != nil {
-			return cachedResources, err
+			return cachedGVKToScope, err
 		}
 		namespaced, err := strconv.ParseBool(words[len(words)-2])
 		if err != nil {
-			return cachedResources, err
+			return cachedGVKToScope, err
 		}
 		kind := words[len(words)-1]
 
@@ -109,16 +109,16 @@ func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
 			Version: gv.Version,
 			Kind:    kind,
 		}
-		cachedResources[gvk] = namespaced
+		cachedGVKToScope[gvk] = namespaced
 	}
 
 	if _, err := os.Stat(apiVersionsFile); os.IsNotExist(err) {
-		return cachedResources, nil
+		return cachedGVKToScope, nil
 	}
 
 	file, err = os.Open(apiVersionsFile)
 	if err != nil {
-		return cachedResources, err
+		return cachedGVKToScope, err
 	}
 	defer file.Close()
 
@@ -128,17 +128,17 @@ func parseCachedAPIResources() (map[schema.GroupVersionKind]bool, error) {
 
 		gv, err := schema.ParseGroupVersion(line)
 		if err != nil {
-			return cachedResources, err
+			return cachedGVKToScope, err
 		}
 
-		for gvk, namespaced := range cachedResources {
+		for gvk, namespaced := range cachedGVKToScope {
 			if gvk.Group == gv.Group {
 				newGVK := gvk
 				newGVK.Version = gv.Version
-				cachedResources[newGVK] = namespaced
+				cachedGVKToScope[newGVK] = namespaced
 			}
 		}
 	}
 
-	return cachedResources, nil
+	return cachedGVKToScope, nil
 }

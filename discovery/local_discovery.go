@@ -2,7 +2,7 @@ package discovery
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
 
-var coreResources = map[schema.GroupVersionKind]bool{
+var coreGVKToScope = map[schema.GroupVersionKind]bool{
 	{Group: "", Version: "v1", Kind: "ComponentStatus"}:                                                 false,
 	{Group: "", Version: "v1", Kind: "ConfigMap"}:                                                       true,
 	{Group: "", Version: "v1", Kind: "Endpoints"}:                                                       true,

@@ -60,8 +60,8 @@ func (a *APIServerResourceInspector) IsCoreGroup(group string) bool {
 	return a.localResourceInspector.IsCoreGroup(group)
 }
 
-func (a *APIServerResourceInspector) AddResource(gvk schema.GroupVersionKind, namespaced bool) {
-	a.localResourceInspector.AddResource(gvk, namespaced)
+func (a *APIServerResourceInspector) AddGVKToScope(gvk schema.GroupVersionKind, namespaced bool) {
+	a.localResourceInspector.AddGVKToScope(gvk, namespaced)
 }
 
 var _ ResourceInspector = &APIServerResourceInspector{}
