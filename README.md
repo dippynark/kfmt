@@ -87,7 +87,7 @@ Namespace; prefixing a Namespace name with `-` excludes that Namespace.
 ### Discovery
 
 kfmt needs to know whether a particular
-[GVK](https://book.kubebuilder.io/cronjob-tutorial/gvks.html) maps to a Namespaced resource or not
+[GVK](https://book.kubebuilder.io/cronjob-tutorial/gvks.html) maps to a namespaced resource or not
 to know how to organise the input manifests. kfmt understands core Kubernetes resources and supports
 the `--discovery` flag to use the Kubernetes discovery API for custom resources. kfmt will also read
 local CRDs for this discovery information and so will only connect to the Kubernetes API if there
