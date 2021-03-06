@@ -59,7 +59,8 @@ Flags:
       --comment                     Comment each output file with the path of the corresponding input file
       --create-missing-namespaces   Create missing Namespace manifests
   -d, --discovery                   Use API Server for discovery
-  -f, --filter stringArray          Filter kind.group from output manifests (e.g. Deployment.apps or Secret)
+  -f, --filter stringArray          Filter Kind.group from output manifests (e.g. Deployment.apps or Secret)
+  -g, --gvk-scope stringArray       Add GVK scope mapping Kind.group/version:Cluster or Kind.group/version:Namespaced to discovery
   -h, --help                        Print help text
   -i, --input stringArray           Input files or directories containing manifests. If no input is specified /dev/stdin will be used
   -k, --kubeconfig string           Path to the kubeconfig file used for discovery (default "/.kube/config")
@@ -85,20 +86,22 @@ Namespace; prefixing a Namespace name with `-` excludes that Namespace.
 
 ### Discovery
 
-kfmt needs to know whether a resource is Namespaced or not to know how to organise the manifests.
-kfmt understands core Kubernetes resources and supports the `--discovery` flag to use the Kubernetes
-discovery API for custom resources. kfmt will also read local CRDs for this discovery information
-and so will only connect to the Kubernetes API if there are custom resources that have no
-corresponding CRD.
+kfmt needs to know whether a particular
+[GVK](https://book.kubebuilder.io/cronjob-tutorial/gvks.html) maps to a Namespaced resource or not
+to know how to organise the input manifests. kfmt understands core Kubernetes resources and supports
+the `--discovery` flag to use the Kubernetes discovery API for custom resources. kfmt will also read
+local CRDs for this discovery information and so will only connect to the Kubernetes API if there
+are custom resources that have no corresponding CRD and the required discovery information is not
+provided using another method.
 
-In addition, kfmt supports reading cached discovery information which can be produced by writing it
-to disk:
+In addition, kfmt supports supplying GVK to scope mappings using the `--gvk-scope` flag or reading
+cached discovery information, which can be produced by writing it to disk:
 
 ```sh
 kubectl api-resources > api-resources.txt
 ```
 
-Similarly, this discovery information can be augmented with all available versions:
+Similarly, this cached discovery information can be augmented with all available versions:
 
 ```sh
 kubectl api-versions > api-versions.txt

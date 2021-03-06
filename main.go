@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
@@ -43,6 +44,7 @@ type Options struct {
 	output                  string
 	inputs                  []string
 	filters                 []string
+	gvkScopes               []string
 	namespace               string
 	clean                   bool
 	strict                  bool
@@ -71,7 +73,8 @@ func main() {
 	cmd.Flags().BoolVarP(&o.version, "version", "v", false, "Print version")
 	cmd.Flags().StringArrayVarP(&o.inputs, "input", "i", []string{}, fmt.Sprintf("Input files or directories containing manifests. If no input is specified %s will be used", os.Stdin.Name()))
 	cmd.Flags().StringVarP(&o.output, "output", "o", "", "Output directory to write organised manifests")
-	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter kind.group from output manifests (e.g. Deployment.apps or Secret)")
+	cmd.Flags().StringArrayVarP(&o.filters, "filter", "f", []string{}, "Filter Kind.group from output manifests (e.g. Deployment.apps or Secret)")
+	cmd.Flags().StringArrayVarP(&o.gvkScopes, "gvk-scope", "g", []string{}, "Add GVK scope mapping Kind.group/version:Cluster or Kind.group/version:Namespaced to discovery")
 	cmd.Flags().StringVarP(&o.namespace, "namespace", "n", corev1.NamespaceDefault, "Set metadata.namespace field if missing from namespaced resources")
 	cmd.Flags().BoolVar(&o.clean, "clean", false, "Remove metadata.namespace field from non-namespaced resources")
 	cmd.Flags().BoolVar(&o.strict, "strict", false, "Require metadata.namespace field is not set for non-namespaced resources")
@@ -126,6 +129,12 @@ func (o *Options) Run() error {
 
 	// Add local CRDs to discovery
 	err = o.localDiscovery(yamlFileNodes, resourceInspector)
+	if err != nil {
+		return err
+	}
+
+	// Add manually specified GVK scopes to discovery
+	err = o.manualDiscovery(resourceInspector)
 	if err != nil {
 		return err
 	}
@@ -246,9 +255,54 @@ func (o *Options) localDiscovery(yamlFileNodes map[string][]*yaml.RNode, resourc
 			return errors.Wrapf(err, "failed to find CRDs in %s", yamlFile)
 		}
 		for gvk, namespaced := range resources {
-			resourceInspector.AddResource(gvk, namespaced)
+			resourceInspector.AddGVKToScope(gvk, namespaced)
 		}
 	}
+	return nil
+}
+
+func (o *Options) manualDiscovery(resourceInspector discovery.ResourceInspector) error {
+	for _, gvkScope := range o.gvkScopes {
+		i := strings.Index(gvkScope, ":")
+		if i == -1 {
+			return fmt.Errorf("failed to parse GVK scope: %s", gvkScope)
+		}
+
+		gvkString := gvkScope[:i]
+		scope := gvkScope[i+1:]
+
+		var namespaced bool
+		switch apiextensions.ResourceScope(scope) {
+		case apiextensions.ClusterScoped:
+			namespaced = false
+		case apiextensions.NamespaceScoped:
+			namespaced = true
+		default:
+			return fmt.Errorf("unrecognised scope %s", scope)
+		}
+
+		i = strings.Index(gvkString, ".")
+		if i == -1 {
+			return fmt.Errorf("failed to parse GVK: %s", gvkString)
+		}
+
+		kind := gvkString[:i]
+		gvString := gvkString[i+1:]
+
+		gv, err := schema.ParseGroupVersion(gvString)
+		if err != nil {
+			return err
+		}
+
+		gvk := schema.GroupVersionKind{
+			Group:   gv.Group,
+			Version: gv.Version,
+			Kind:    kind,
+		}
+
+		resourceInspector.AddGVKToScope(gvk, namespaced)
+	}
+
 	return nil
 }
 

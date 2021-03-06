@@ -16,7 +16,7 @@ func main() {
 
 	// TODO: map from group/kind to namespaced (ignore version)
 	// schema.GroupKind
-	gvkNamespaced, err := parseGVKNamespacedMapping()
+	gvkToScope, err := parseGVKToScope()
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(1)
@@ -29,10 +29,10 @@ func main() {
 
 	file.WriteString(fmt.Sprintf("package discovery\n\n"))
 	file.WriteString(fmt.Sprintf("import \"k8s.io/apimachinery/pkg/runtime/schema\"\n\n"))
-	file.WriteString(fmt.Sprintf("var coreResources = map[schema.GroupVersionKind]bool{\n"))
+	file.WriteString(fmt.Sprintf("var coreGVKToScope = map[schema.GroupVersionKind]bool{\n"))
 
 	var keys []schema.GroupVersionKind
-	for k := range gvkNamespaced {
+	for k := range gvkToScope {
 		keys = append(keys, k)
 	}
 	slice.Sort(keys[:], func(i, j int) bool {
@@ -46,7 +46,7 @@ func main() {
 	})
 
 	for _, k := range keys {
-		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", k.Group, k.Version, k.Kind, strconv.FormatBool(gvkNamespaced[k])))
+		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", k.Group, k.Version, k.Kind, strconv.FormatBool(gvkToScope[k])))
 	}
 
 	file.WriteString(fmt.Sprintf("}"))
@@ -126,9 +126,9 @@ func extractSubstring(registerFileName, prefix, suffix string) (string, error) {
 	return "", fmt.Errorf("failed to find substring: %s %s %s", registerFileName, prefix, suffix)
 }
 
-func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
+func parseGVKToScope() (map[schema.GroupVersionKind]bool, error) {
 
-	gvkNamespaced := map[schema.GroupVersionKind]bool{}
+	gvkToScope := map[schema.GroupVersionKind]bool{}
 
 	// Walk directory containing core resource definitions
 	err := filepath.Walk(os.Args[len(os.Args)-2],
@@ -154,14 +154,14 @@ func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
 					return err
 				}
 				for k, v := range extractedGVKNamespaced {
-					gvkNamespaced[k] = v
+					gvkToScope[k] = v
 				}
 			}
 			return nil
 		})
 	if err != nil {
-		return gvkNamespaced, err
+		return gvkToScope, err
 	}
 
-	return gvkNamespaced, nil
+	return gvkToScope, nil
 }
