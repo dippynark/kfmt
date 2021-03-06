@@ -89,13 +89,9 @@ Namespace; prefixing a Namespace name with `-` excludes that Namespace.
 kfmt needs to know whether a particular
 [GVK](https://book.kubebuilder.io/cronjob-tutorial/gvks.html) maps to a namespaced resource or not
 to know how to organise the input manifests. kfmt understands core Kubernetes resources and supports
-the `--discovery` flag to use the Kubernetes discovery API for custom resources. kfmt will also read
-local CRDs for this discovery information and so will only connect to the Kubernetes API if there
-are custom resources that have no corresponding CRD and the required discovery information is not
-provided using another method.
-
-In addition, kfmt supports supplying GVK to scope mappings using the `--gvk-scope` flag or reading
-cached discovery information, which can be produced by writing it to disk:
+discovering mappings for custom resources by reading CRDs in the input manifests, using the
+`--gvk-scope` flag or reading cached discovery information, which can be produced by writing it to
+disk:
 
 ```sh
 kubectl api-resources > api-resources.txt
@@ -106,6 +102,10 @@ Similarly, this cached discovery information can be augmented with all available
 ```sh
 kubectl api-versions > api-versions.txt
 ```
+
+In addition, kfmt supports the `--discovery` flag to use the Kubernetes discovery API. kfmt will
+only connect to the Kubernetes API if the required discovery information is not provided using
+another method.
 
 ## Format
 
