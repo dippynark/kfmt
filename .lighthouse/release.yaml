@@ -137,8 +137,11 @@ spec:
               exit 0
             fi
 
-            # Create release description with the tag as the title
+            # Create release title
             echo "$(inputs.params.tag)" > release.txt
+            # Create release description
+            # https://stackoverflow.com/a/40256763/6180803
+            git log $(git describe --tags --abbrev=0 $(inputs.params.tag)^)..$(inputs.params.tag) --oneline >> release.txt
 
             echo "Creating release $(inputs.params.tag)"
             hub release create \
