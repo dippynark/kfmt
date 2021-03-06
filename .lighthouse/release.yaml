@@ -138,7 +138,7 @@ spec:
             fi
 
             # Create release title
-            echo "$(inputs.params.tag)" > release.txt
+            echo "$(inputs.params.tag)\n" > release.txt
             # Create release description
             # https://stackoverflow.com/a/40256763/6180803
             git log $(git describe --tags --abbrev=0 $(inputs.params.tag)^)..$(inputs.params.tag) --oneline >> release.txt
