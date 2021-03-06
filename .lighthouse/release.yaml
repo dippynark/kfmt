@@ -137,7 +137,7 @@ spec:
               exit 0
             fi
 
-            # Create empty release description
+            # Create release description with the tag as the title
             echo "# $(inputs.params.tag)" > release.md
 
             echo "Creating release $(inputs.params.tag)"
