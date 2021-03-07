@@ -139,11 +139,18 @@ spec:
 
             # Create release title
             echo -e "$(inputs.params.tag)\n" > release.txt
+
             # Create release description
             # https://stackoverflow.com/a/40256763/6180803
-            git log $(git describe --tags --abbrev=0 $(inputs.params.tag)^)..$(inputs.params.tag) --oneline >> release.txt
+            if git describe --tags $(inputs.params.tag)^ >/dev/null 2>&1; then
+              # A previous tag exists so retrieve commit messages between tags
+              git log $(git describe --tags --abbrev=0 $(inputs.params.tag)^)..$(inputs.params.tag) --oneline >> release.txt
+            else
+              # No previous tag exists so retrieve all commit messages before tag
+              git log $(inputs.params.tag) --oneline >> release.txt
+            fi
 
-            echo "Creating release $(inputs.params.tag)"
+            # Creating release
             hub release create \
               --file release.txt \
               --attach bin/checksums.txt \
