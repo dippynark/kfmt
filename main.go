@@ -563,7 +563,7 @@ func (o *Options) getOutputFile(node *yaml.RNode, resourceInspector discovery.Re
 
 	if isNamespaced {
 		namespace, err := getNamespace(node)
-		if err != nil {
+		if err != nil || namespace == "" {
 			return outputFile, errors.Wrap(err, "failed to get namespace")
 		}
 
