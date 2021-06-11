@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/dippynark/kfmt/discovery"
-	"github.com/jenkins-x/jx-helpers/v3/pkg/cobras/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -65,7 +65,9 @@ func main() {
 		Short: "kfmt organises Kubernetes manifests into a standard format.",
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.Run()
-			helper.CheckErr(err)
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 

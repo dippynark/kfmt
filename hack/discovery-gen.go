@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/bradfitz/slice"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -35,7 +35,7 @@ func main() {
 	for k := range gvkToScope {
 		keys = append(keys, k)
 	}
-	slice.Sort(keys[:], func(i, j int) bool {
+	sort.Slice(keys[:], func(i, j int) bool {
 		if keys[i].Group != keys[j].Group {
 			return keys[i].Group < keys[j].Group
 		}
