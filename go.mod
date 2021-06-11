@@ -31,11 +31,21 @@ replace (
 )
 
 require (
-	github.com/bradfitz/slice v0.0.0-20180809154707-2b758aa73013
-	github.com/jenkins-x/jx-helpers/v3 v3.0.68
+	github.com/Azure/go-autorest/autorest v0.11.17 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
+	github.com/go-logr/logr v0.2.1 // indirect
+	github.com/go-openapi/spec v0.19.7 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/googleapis/gnostic v0.4.2 // indirect
+	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.1
-	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect
+	golang.org/x/text v0.3.5 // indirect
+	google.golang.org/appengine v1.6.7 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.20.4
 	k8s.io/apimachinery v0.20.2
