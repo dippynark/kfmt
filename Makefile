@@ -1,4 +1,4 @@
-DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.0.0
+DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.4.0
 
 BIN_DIR = bin
 INPUT_DIR = input
