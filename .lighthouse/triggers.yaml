@@ -4,8 +4,8 @@ spec:
   presubmits:
   - name: pr
     always_run: true
-    trigger: /test
-    rerun_command: /retest
+    trigger: ^/test$
+    rerun_command: /test
     source: pullrequest.yaml
   postsubmits:
   - name: release
