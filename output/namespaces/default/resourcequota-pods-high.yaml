@@ -1,0 +1,10 @@
+---
+# Source: input/default-resourcequota.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: default
+spec:
+  hard:
+    pods: "20"

@@ -1,0 +1,12 @@
+---
+# Source: input/nginx.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 80

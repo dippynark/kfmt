@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  annotations:
+    kfmt.dev/namespaces: "*,-test"
+spec:
+  hard:
+    pods: "20"

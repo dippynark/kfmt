@@ -1,0 +1,13 @@
+apiVersion: config.lighthouse.jenkins-x.io/v1alpha1
+kind: TriggerConfig
+spec:
+  presubmits:
+  - name: pr
+    always_run: true
+    source: pullrequest.yaml
+  postsubmits:
+  - name: release
+    source: release.yaml
+    branches:
+    - master
+    - ^v\d+\.\d+\.\d+$

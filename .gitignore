@@ -1,4 +1,4 @@
-/api
+.vscode
+
+/k8s.io
 /bin
-/input
-/output

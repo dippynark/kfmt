@@ -1,0 +1,6 @@
+---
+# Source: input/test-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/bradfitz/slice"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -16,20 +16,11 @@ func main() {
 
 	// TODO: map from group/kind to namespaced (ignore version)
 	// schema.GroupKind
-	gvkNamespaced, err := parseGVKNamespacedMapping()
+	gvkToScope, err := parseGVKToScope()
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(1)
 	}
-
-	// Manually add CustomResourceDefinition and APIService
-	// TOOD: find the real definitions
-
-	// /Users/luke/go/src/k8s.io/apiextensions-apiserver
-	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}] = false
-	gvkNamespaced[schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}] = false
-	// /Users/luke/go/src/k8s.io/kube-aggregator
-	gvkNamespaced[schema.GroupVersionKind{Group: "apiregistration.k8s.io", Version: "v1beta1", Kind: "APIService"}] = false
 
 	file, err := os.OpenFile(os.Args[len(os.Args)-1], os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
@@ -38,13 +29,13 @@ func main() {
 
 	file.WriteString(fmt.Sprintf("package discovery\n\n"))
 	file.WriteString(fmt.Sprintf("import \"k8s.io/apimachinery/pkg/runtime/schema\"\n\n"))
-	file.WriteString(fmt.Sprintf("var coreResources = map[schema.GroupVersionKind]bool{\n"))
+	file.WriteString(fmt.Sprintf("var coreGVKToScope = map[schema.GroupVersionKind]bool{\n"))
 
 	var keys []schema.GroupVersionKind
-	for k := range gvkNamespaced {
+	for k := range gvkToScope {
 		keys = append(keys, k)
 	}
-	slice.Sort(keys[:], func(i, j int) bool {
+	sort.Slice(keys[:], func(i, j int) bool {
 		if keys[i].Group != keys[j].Group {
 			return keys[i].Group < keys[j].Group
 		}
@@ -55,7 +46,7 @@ func main() {
 	})
 
 	for _, k := range keys {
-		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", k.Group, k.Version, k.Kind, strconv.FormatBool(gvkNamespaced[k])))
+		file.WriteString(fmt.Sprintf("  {Group: \"%s\", Version: \"%s\", Kind: \"%s\"}: %s,\n", k.Group, k.Version, k.Kind, strconv.FormatBool(gvkToScope[k])))
 	}
 
 	file.WriteString(fmt.Sprintf("}"))
@@ -132,13 +123,14 @@ func extractSubstring(registerFileName, prefix, suffix string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("failed to find substring: %s", registerFileName)
+	return "", fmt.Errorf("failed to find substring: %s %s %s", registerFileName, prefix, suffix)
 }
 
-func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
+func parseGVKToScope() (map[schema.GroupVersionKind]bool, error) {
 
-	gvkNamespaced := map[schema.GroupVersionKind]bool{}
+	gvkToScope := map[schema.GroupVersionKind]bool{}
 
+	// Walk directory containing core resource definitions
 	err := filepath.Walk(os.Args[len(os.Args)-2],
 		func(fileName string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -147,25 +139,29 @@ func parseGVKNamespacedMapping() (map[schema.GroupVersionKind]bool, error) {
 			if strings.HasSuffix(fileName, "/types.go") {
 				group, err := extractSubstring(strings.TrimSuffix(fileName, "/types.go")+"/register.go", "const GroupName = \"", "\"")
 				if err != nil {
-					return err
+					// Ignore errors here due to apiextensions-apiserver/examples/client-go/pkg/apis/cr/v1/register.go
+					// return err
+					return nil
 				}
 				version, err := extractSubstring(strings.TrimSuffix(fileName, "/types.go")+"/register.go", "var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: \"", "\"}")
 				if err != nil {
-					return err
+					// Ignore errors here due to kube-aggregator/pkg/apis/apiregistration/register.go
+					// return err
+					return nil
 				}
 				extractedGVKNamespaced, err := extractGVKNamespacedMapping(fileName, group, version)
 				if err != nil {
 					return err
 				}
 				for k, v := range extractedGVKNamespaced {
-					gvkNamespaced[k] = v
+					gvkToScope[k] = v
 				}
 			}
 			return nil
 		})
 	if err != nil {
-		return gvkNamespaced, nil
+		return gvkToScope, err
 	}
 
-	return gvkNamespaced, nil
+	return gvkToScope, nil
 }

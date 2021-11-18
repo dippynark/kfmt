@@ -2,7 +2,7 @@ package discovery
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
 
-var coreResources = map[schema.GroupVersionKind]bool{
+var coreGVKToScope = map[schema.GroupVersionKind]bool{
 	{Group: "", Version: "v1", Kind: "ComponentStatus"}:                                                 false,
 	{Group: "", Version: "v1", Kind: "ConfigMap"}:                                                       true,
 	{Group: "", Version: "v1", Kind: "Endpoints"}:                                                       true,
@@ -25,6 +25,7 @@ var coreResources = map[schema.GroupVersionKind]bool{
 	{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"}: false,
 	{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}:                    false,
 	{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"}:               false,
+	{Group: "apiregistration.k8s.io", Version: "v1", Kind: "APIService"}:                                false,
 	{Group: "apiregistration.k8s.io", Version: "v1beta1", Kind: "APIService"}:                           false,
 	{Group: "apps", Version: "v1", Kind: "ControllerRevision"}:                                          true,
 	{Group: "apps", Version: "v1", Kind: "DaemonSet"}:                                                   true,

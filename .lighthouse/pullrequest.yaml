@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  name: release
+  name: pullrequest
 spec:
   serviceAccountName: tekton-bot
   pipelineSpec:
@@ -11,15 +11,15 @@ spec:
       type: string
     - default: master
       description: git revision to checkout (branch, tag, sha, ref…)
-      name: revision
+      name: PULL_PULL_SHA
       type: string
     tasks:
-    - name: build
+    - name: clone-build-test
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
-      - name: revision
-        value: $(params.revision)
+      - name: PULL_PULL_SHA
+        value: $(params.PULL_PULL_SHA)
       taskSpec:
         params:
         - description: git url to clone
@@ -27,7 +27,7 @@ spec:
           type: string
         - default: master
           description: git revision to checkout (branch, tag, sha, ref…)
-          name: revision
+          name: PULL_PULL_SHA
           type: string
         stepTemplate:
           name: ""
@@ -48,10 +48,10 @@ spec:
             git config --global credential.helper store;
             git clone $(inputs.params.REPO_URL) .;
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
-            git checkout $(inputs.params.revision);
-            echo checked out revision: $(inputs.params.revision) to dir: `pwd`
+            git merge $(inputs.params.PULL_PULL_SHA);
+            echo merged PULL_PULL_SHA into master: $(inputs.params.PULL_PULL_SHA) to dir: `pwd`
           workingDir: /workspace
-        - name: build
+        - name: build-test
           image: dippynark/kfmt-build:v1.0.0
           command:
           - make
@@ -61,27 +61,22 @@ spec:
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
-        - name: kaniko
-          image: gcr.io/kaniko-project/executor:v1.3.0
+        # Verify there are no changes
+        - name: git-status
+          image: alpine/git:v2.30.0
+          command:
+          - /bin/sh
           args:
-          - --dockerfile=Dockerfile
-          - --context=dir:///workspace
-          - --destination=dippynark/kfmt:$(inputs.params.revision)
-          - --destination=dippynark/kfmt:latest
-          - --cache
-          - --cache-repo=dippynark/kfmt-cache
-          volumeMounts:
-          - name: kaniko-secret
-            mountPath: /kaniko/.docker
+          - -ce
+          - |
+            if [ -n "$(git status --porcelain)" ]; then
+              git status --porcelain
+              exit 1
+            fi
+          workingDir: /workspace
         volumes:
         - name: workspace
           emptyDir: {}
         - name: go-pkg-mod
           hostPath:
             path: /mnt/ssd/data/go/pkg/mod
-        - name: kaniko-secret
-          secret:
-            secretName: tekton-container-registry-auth
-            items:
-            - key: .dockerconfigjson
-              path: config.json

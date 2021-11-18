@@ -1,0 +1,10 @@
+---
+# Source: input/nginx.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: nginx
+spec:
+  hard:
+    pods: "10"
