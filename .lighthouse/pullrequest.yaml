@@ -11,15 +11,15 @@ spec:
       type: string
     - default: master
       description: git revision to checkout (branch, tag, sha, ref…)
-      name: PULL_PULL_SHA
+      name: PULL_NUMBER
       type: string
     tasks:
     - name: clone-build-test
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
-      - name: PULL_PULL_SHA
-        value: $(params.PULL_PULL_SHA)
+      - name: PULL_NUMBER
+        value: $(params.PULL_NUMBER)
       taskSpec:
         params:
         - description: git url to clone
@@ -27,7 +27,7 @@ spec:
           type: string
         - default: master
           description: git revision to checkout (branch, tag, sha, ref…)
-          name: PULL_PULL_SHA
+          name: PULL_NUMBER
           type: string
         stepTemplate:
           name: ""
@@ -48,8 +48,11 @@ spec:
             git config --global credential.helper store;
             git clone $(inputs.params.REPO_URL) .;
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
-            git merge $(inputs.params.PULL_PULL_SHA);
-            echo merged PULL_PULL_SHA into master: $(inputs.params.PULL_PULL_SHA) to dir: `pwd`
+            # https://gist.github.com/piscisaureus/3342247
+            git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
+            git fetch origin
+            git merge origin/pr/$(inputs.params.PULL_NUMBER);
+            echo merged PR $(inputs.params.PULL_NUMBER) into master
           workingDir: /workspace
         - name: build-test
           image: dippynark/kfmt-build:v1.0.0
