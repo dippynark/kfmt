@@ -148,3 +148,4 @@ may make any changes easier to review.
 ## TODO
 
 - Mock out the filesystem for testing: https://pkg.go.dev/io/fs
+- Test README change 
