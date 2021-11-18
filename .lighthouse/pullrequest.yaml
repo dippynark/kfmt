@@ -50,6 +50,7 @@ spec:
             echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
             # https://gist.github.com/piscisaureus/3342247
             git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
+            git config --unset remote.origin.fetch '\+refs/heads/\*:refs/remotes/origin/\*'
             git fetch origin
             git merge origin/pr/$(inputs.params.PULL_NUMBER);
             echo merged PR $(inputs.params.PULL_NUMBER) into master
