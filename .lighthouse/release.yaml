@@ -88,7 +88,7 @@ spec:
           # https://github.com/tektoncd/catalog/blob/37e8a986d97930fb009a25271166accbe14338c7/task/kaniko/0.1/kaniko.yaml#L45-L49
           env:
           - name: DOCKER_CONFIG
-            value: /tekton/creds/.docker
+            value: /tekton/creds/.docker/config.json
           args:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
