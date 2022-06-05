@@ -36,12 +36,13 @@ type options struct {
 }
 
 func (o *options) run() error {
-
+	// Print version
 	if o.version {
 		fmt.Println(version)
 		return nil
 	}
 
+	// Validate options
 	err := o.validate()
 	if err != nil {
 		return err
