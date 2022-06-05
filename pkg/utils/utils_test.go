@@ -244,3 +244,72 @@ kind: CustomResourceDefinition
         t.Error("expected error due to missing CRD group")
     }
 }
+
+func TestGetCRDKind(t *testing.T) {
+    manifests := `
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+spec:
+  names:
+    kind: Test
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+`
+    nodes, err := kio.FromBytes([]byte(manifests))
+    if err != nil {
+        t.Error(err)
+    }
+
+    if len(nodes) != 2 {
+        t.Error("failed to ingest manifests")
+    }
+
+    crdKind, err := GetCRDKind(nodes[0])
+    if err != nil {
+        t.Error(err)
+    }
+
+    if crdKind != "Test" {
+        t.Error("failed to retrieve CRD kind")
+    }
+
+    crdKind, err = GetCRDKind(nodes[1])
+    if err == nil {
+        t.Error("expected error due to missing CRD kind")
+    }
+}
+
+func TestGetCRDScope(t *testing.T) {
+    manifests := `
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+spec:
+  scope: Namespaced
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+`
+    nodes, err := kio.FromBytes([]byte(manifests))
+    if err != nil {
+        t.Error(err)
+    }
+
+    if len(nodes) != 2 {
+        t.Error("failed to ingest manifests")
+    }
+
+    crdScope, err := GetCRDScope(nodes[0])
+    if err != nil {
+        t.Error(err)
+    }
+
+    if crdScope != "Namespaced" {
+        t.Error("failed to retrieve CRD scope")
+    }
+
+    crdScope, err = GetCRDScope(nodes[1])
+    if err == nil {
+        t.Error("expected error due to missing CRD scope")
+    }
+}
