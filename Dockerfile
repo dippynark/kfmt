@@ -1,5 +1,5 @@
 FROM scratch
 
-COPY bin/kfmt-linux-amd64 /kfmt
+COPY bin/kfmt /kfmt
 
 ENTRYPOINT ["/kfmt"]

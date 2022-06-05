@@ -67,7 +67,7 @@ spec:
           volumeMounts:
           - name: workspace
             mountPath: /workspace
-        - name: test
+        - name: test-build
           image: golang:1.18-alpine
           command:
           - /bin/sh
@@ -75,7 +75,7 @@ spec:
           - -ce
           - |
             apk add --update make
-            make test release VERSION=$(params.PULL_BASE_REF)
+            make test build VERSION=$(params.PULL_BASE_REF)
           workingDir: /workspace
           volumeMounts:
           - name: workspace
@@ -96,8 +96,26 @@ spec:
             mountPath: /workspace
           - name: kaniko-secret
             mountPath: /kaniko/.docker
-        # https://github.com/tektoncd/catalog/blob/master/task/create-github-release/0.1/create-github-release.yaml
         - name: release
+          image: golang:1.18-alpine
+          command:
+          - /bin/sh
+          args:
+          - -ce
+          - |
+            if [ "$(inputs.params.VERSION)" = "main" ]; then
+              exit 0
+            fi
+            apk add --update make
+            make release VERSION=$(params.PULL_BASE_REF)
+          workingDir: /workspace
+          volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+          - name: go-pkg-mod
+            mountPath: /go/pkg/mod
+        # https://github.com/tektoncd/catalog/blob/master/task/create-github-release/0.1/create-github-release.yaml
+        - name: github-release
           image: quay.io/diagrawa/github-hub@sha256:a002e05e3c3362f49dc31b8c16c10d76c6dbd854fdb0f596eaae8ac8b792adfb #tag: latest
           env:
           - name: GITHUB_TOKEN
@@ -109,21 +127,21 @@ spec:
             #!/usr/bin/env bash
             set -ex
 
-            if [ "$(inputs.params.IMAGE_TAG)" = "latest" ]; then
+            if [ "$(inputs.params.VERSION)" = "main" ]; then
               exit 0
             fi
 
             # Create release title
-            echo -e "$(inputs.params.IMAGE_TAG)\n" > release.txt
+            echo -e "$(inputs.params.VERSION)\n" > release.txt
 
             # Create release description
             # https://stackoverflow.com/a/40256763/6180803
-            if git describe --tags $(inputs.params.IMAGE_TAG)^ >/dev/null 2>&1; then
+            if git describe --tags $(inputs.params.VERSION)^ >/dev/null 2>&1; then
               # A previous tag exists so retrieve commit messages between tags
-              git log $(git describe --tags --abbrev=0 $(inputs.params.IMAGE_TAG)^)..$(inputs.params.IMAGE_TAG) --oneline >> release.txt
+              git log $(git describe --tags --abbrev=0 $(inputs.params.VERSION)^)..$(inputs.params.VERSION) --oneline >> release.txt
             else
               # No previous tag exists so retrieve all commit messages before tag
-              git log $(inputs.params.IMAGE_TAG) --oneline >> release.txt
+              git log $(inputs.params.VERSION) --oneline >> release.txt
             fi
 
             # Creating release
@@ -134,7 +152,7 @@ spec:
               --attach bin/kfmt-darwin-arm64 \
               --attach bin/kfmt-linux-amd64 \
               --attach bin/kfmt-windows-amd64.exe \
-              $(inputs.params.IMAGE_TAG)
+              $(inputs.params.VERSION)
           workingDir: /workspace
           volumeMounts:
           - name: workspace
