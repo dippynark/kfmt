@@ -74,7 +74,6 @@ spec:
           args:
           - -ce
           - |
-            find /kaniko
             apk add --update make
             make test build VERSION=$(params.PULL_BASE_REF)
           workingDir: /workspace
