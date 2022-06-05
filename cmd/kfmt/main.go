@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -40,8 +39,9 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			err := o.run()
 			if err != nil {
-				log.Fatal(err)
+				fmt.Fprintf(os.Stderr, "kfmt: %s\n", err)
 			}
+			os.Exit(1)
 		},
 	}
 

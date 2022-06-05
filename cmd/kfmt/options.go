@@ -42,12 +42,20 @@ func (o *options) run() error {
 		return nil
 	}
 
-	if o.output == "" {
-		return errors.Errorf("output directory not specified")
+	err := o.validate()
+	if err != nil {
+		return err
 	}
 
 	// Abstract away from the filesystem: https://github.com/spf13/afero
 	return o.format(afero.NewOsFs(), afero.NewBasePathFs(afero.NewOsFs(), o.output))
+}
+
+func (o *options) validate() error {
+	if o.output == "" {
+		return errors.Errorf("output directory not specified")
+	}
+	return nil
 }
 
 func (o *options) format(inputFileSystem afero.Fs, outputFileSystem afero.Fs) error {
