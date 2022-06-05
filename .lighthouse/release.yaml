@@ -84,10 +84,8 @@ spec:
             mountPath: /go/pkg/mod
         - name: build-push
           image: gcr.io/kaniko-project/executor:v1.8.1
-          # https://github.com/tektoncd/catalog/blob/37e8a986d97930fb009a25271166accbe14338c7/task/kaniko/0.1/kaniko.yaml#L45-L49
-          env:
-          - name: DOCKER_CONFIG
-            value: /tekton/creds/.docker
+          command:
+          - /kaniko/executor
           args:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
@@ -95,6 +93,10 @@ spec:
           - --cache
           - --cache-repo=dippynark/kfmt-cache
           - --build-arg=VERSION=$(params.PULL_BASE_REF)
+          # https://github.com/tektoncd/catalog/blob/37e8a986d97930fb009a25271166accbe14338c7/task/kaniko/0.1/kaniko.yaml#L45-L49
+          env:
+          - name: DOCKER_CONFIG
+            value: /tekton/creds/.docker
           volumeMounts:
           - name: workspace
             mountPath: /workspace
