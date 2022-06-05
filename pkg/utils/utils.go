@@ -53,19 +53,6 @@ func GetName(node *yaml.RNode) (string, error) {
 	return name, nil
 }
 
-func GetKind(node *yaml.RNode) (string, error) {
-	kind, err := GetStringField(node, "kind")
-	if err != nil {
-		return "", err
-	}
-
-	if kind == "" {
-		return "", errors.New("kind is empty")
-	}
-
-	return kind, nil
-}
-
 func GetAPIVersion(node *yaml.RNode) (string, error) {
 	kind, err := GetStringField(node, "apiVersion")
 	if err != nil {
@@ -79,6 +66,18 @@ func GetAPIVersion(node *yaml.RNode) (string, error) {
 	return kind, nil
 }
 
+func GetKind(node *yaml.RNode) (string, error) {
+	kind, err := GetStringField(node, "kind")
+	if err != nil {
+		return "", err
+	}
+
+	if kind == "" {
+		return "", errors.New("kind is empty")
+	}
+
+	return kind, nil
+}
 func GetCRDGroup(node *yaml.RNode) (string, error) {
 	group, err := GetStringField(node, "spec", "group")
 	if err != nil {
