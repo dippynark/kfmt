@@ -15,6 +15,10 @@ generate:
 	go run hack/discovery-gen.go -- $(K8S_DIR) pkg/discovery/local_discovery.go
 	go fmt pkg/discovery/local_discovery.go
 
+test:
+	# https://github.com/golang/go/issues/28065#issuecomment-725632025
+	CGO_ENABLED=0 go test -v ./...
+
 build:
 	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS) $(KFMT)
 
@@ -24,10 +28,6 @@ release:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DIR)/kfmt-darwin-arm64 $(BUILD_FLAGS) $(KFMT)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS) $(KFMT)
 	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-darwin-arm64 kfmt-windows-amd64.exe > checksums.txt
-
-test:
-	# https://github.com/golang/go/issues/28065#issuecomment-725632025
-	CGO_ENABLED=0 go test -v ./...
 
 docker_build_push:
 	docker buildx build \
