@@ -75,6 +75,8 @@ spec:
           - -ce
           - |
             find /tekton
+            cat /tekton/creds/.git-credentials
+            cat /tekton/creds/.gitconfig
             apk add --update make
             make test build VERSION=$(params.PULL_BASE_REF)
           workingDir: /workspace
