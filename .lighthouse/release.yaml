@@ -155,6 +155,7 @@ spec:
               --file release.txt \
               --attach bin/checksums.txt \
               --attach bin/kfmt-darwin-amd64 \
+              --attach bin/kfmt-darwin-arm64 \
               --attach bin/kfmt-linux-amd64 \
               --attach bin/kfmt-windows-amd64.exe \
               $(inputs.params.tag)

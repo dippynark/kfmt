@@ -1,9 +1,7 @@
+KFMT = ./cmd/kfmt
+
 BIN_DIR = bin
-INPUT_DIR = input
-OUTPUT_DIR = output
 K8S_DIR = k8s.io
-WORK_DIR = /workspace
-GOPATH ?= $(HOME)/go
 
 VERSION = $(shell git describe --tags)
 BUILD_FLAGS = -tags netgo -ldflags "-X main.version=$(VERSION)"
@@ -18,32 +16,23 @@ generate:
 	go fmt pkg/discovery/local_discovery.go
 
 build:
-	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS) ./cmd/kfmt
+	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS) $(KFMT)
 
 release:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS) ./cmd/kfmt
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS) ./cmd/kfmt
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS) ./cmd/kfmt
-	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-windows-amd64.exe > checksums.txt
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS) $(KFMT)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS) $(KFMT)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DIR)/kfmt-darwin-arm64 $(BUILD_FLAGS) $(KFMT)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS) $(KFMT)
+	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-darwin-arm64 kfmt-windows-amd64.exe > checksums.txt
 
 test:
 	# https://github.com/golang/go/issues/28065#issuecomment-725632025
 	CGO_ENABLED=0 go test -v ./...
 
-e2e_test:
-	rm -rf $(OUTPUT_DIR)
-	$(BIN_DIR)/kfmt --input $(INPUT_DIR) \
-		--output $(OUTPUT_DIR) \
-		--strict \
-		--comment \
-		--create-missing-namespaces
-	find $(OUTPUT_DIR)
-
-docker_build:
-	docker build \
+docker_build_push:
+	docker buildx build \
 		-t $(DOCKER_BUILD_IMAGE) \
 		--build-arg=VERSION=$(VERSION) \
+		--platform linux/amd64,linux/arm64 \
+		--push \
 		.
-
-docker_push: docker_build
-	docker push $(DOCKER_BUILD_IMAGE)
