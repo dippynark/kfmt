@@ -122,11 +122,8 @@ spec:
         - name: github-release
           image: quay.io/diagrawa/github-hub@sha256:a002e05e3c3362f49dc31b8c16c10d76c6dbd854fdb0f596eaae8ac8b792adfb #tag: latest
           env:
-          - name: GITHUB_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: tekton-git
-                key: password
+          - name: HOME
+            value: /tekton/creds
           script: |
             #!/usr/bin/env bash
             set -ex
