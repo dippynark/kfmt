@@ -74,9 +74,6 @@ spec:
           args:
           - -ce
           - |
-            find /tekton
-            cat /tekton/creds/.git-credentials
-            cat /tekton/creds/.gitconfig
             apk add --update make
             make test build VERSION=$(params.PULL_BASE_REF)
           workingDir: /workspace
@@ -125,8 +122,11 @@ spec:
         - name: github-release
           image: quay.io/diagrawa/github-hub@sha256:a002e05e3c3362f49dc31b8c16c10d76c6dbd854fdb0f596eaae8ac8b792adfb #tag: latest
           env:
-          - name: HOME
-            value: /tekton/creds
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: tekton-git
+                key: password
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
