@@ -1,5 +1,3 @@
-DOCKER_BUILD_IMAGE = dippynark/kfmt-build:v1.4.0
-
 BIN_DIR = bin
 INPUT_DIR = input
 OUTPUT_DIR = output
@@ -9,6 +7,7 @@ GOPATH ?= $(HOME)/go
 
 VERSION = $(shell git describe --tags)
 BUILD_FLAGS = -tags netgo -ldflags "-X main.version=$(VERSION)"
+DOCKER_BUILD_IMAGE = dippynark/kfmt:$(VERSION)
 
 generate:
 	mkdir -p $(K8S_DIR)
@@ -42,19 +41,11 @@ e2e_test:
 		--create-missing-namespaces
 	find $(OUTPUT_DIR)
 
-docker_build_image:
+docker_build:
 	docker build \
 		-t $(DOCKER_BUILD_IMAGE) \
-		-f Dockerfile.build \
+		--build-arg=VERSION=$(VERSION) \
 		.
 
-docker_build_image_push: docker_build_image
+docker_push: docker_build
 	docker push $(DOCKER_BUILD_IMAGE)
-
-docker_%: docker_build_image
-	docker run -it \
-		-w $(WORK_DIR) \
-		-v $(GOPATH)/pkg/mod:/go/pkg/mod \
-		-v $(CURDIR):$(WORK_DIR) \
-		$(DOCKER_BUILD_IMAGE) \
-		make $*
