@@ -209,3 +209,38 @@ apiVersion: v1
         t.Error("expected error due to missing kind")
     }
 }
+
+func TestGetCRDGroup(t *testing.T) {
+    manifests := `
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+spec:
+  group:
+    kfmt.dev
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+`
+    nodes, err := kio.FromBytes([]byte(manifests))
+    if err != nil {
+        t.Error(err)
+    }
+
+    if len(nodes) != 2 {
+        t.Error("failed to ingest manifests")
+    }
+
+    crdGroup, err := GetCRDGroup(nodes[0])
+    if err != nil {
+        t.Error(err)
+    }
+
+    if crdGroup != "kfmt.dev" {
+        t.Error("failed to retrieve CRD group")
+    }
+
+    crdGroup, err = GetCRDGroup(nodes[1])
+    if err == nil {
+        t.Error("expected error due to missing CRD group")
+    }
+}
