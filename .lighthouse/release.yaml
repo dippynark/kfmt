@@ -6,122 +6,95 @@ spec:
   serviceAccountName: tekton-bot
   pipelineSpec:
     params:
-    - description: git url to clone
-      name: REPO_URL
+    - name: REPO_URL
       type: string
-    - default: master
-      description: the base git reference of the pull request
+    - default: main
       # PULL_BASE_REF isn't the best name: https://stackoverflow.com/a/55460756/6180803
       # https://github.com/jenkins-x/lighthouse/blob/cde789ba2cd6835613553351978420be6a583f55/pkg/engines/tekton/test_data/controller/start-batch-pullrequest/observed-lhjob.yml#L32-L33
       name: PULL_BASE_REF
       type: string
     tasks:
-    - name: calculate-image-tag
+    - name: determine-image-tag
       params:
       - name: PULL_BASE_REF
         value: $(params.PULL_BASE_REF)
       taskSpec:
         params:
-        - default: master
-          description: the base git reference of the pull request
-          name: PULL_BASE_REF
+        - name: PULL_BASE_REF
           type: string
         results:
-        - name: tag
-          description: Docker image tag
+        - name: IMAGE_TAG
         steps:
-        - name: calculate-image-tag
-          image: busybox:1.32
+        - name: determine-image-tag
+          image: busybox:1.35
           command:
           - /bin/sh
           args:
           - -ce
           - |
-            TAG="$(inputs.params.PULL_BASE_REF)"
-            if [ "$TAG" = "master" ]; then
-              TAG="latest"
+            IMAGE_TAG="$(inputs.params.PULL_BASE_REF)"
+            if [ "$IMAGE_TAG" = "main" ]; then
+              IMAGE_TAG="latest"
             fi
-            echo -n $TAG > $(results.tag.path)
-    - name: clone-build-test-push
+            echo -n $IMAGE_TAG > $(results.IMAGE_TAG.path)
+    - name: git-clone-test-build-push-release
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
       - name: PULL_BASE_REF
         value: $(params.PULL_BASE_REF)
-      - name: tag
-        value: $(tasks.calculate-image-tag.results.tag)
+      - name: IMAGE_TAG
+        value: $(tasks.determine-image-tag.results.IMAGE_TAG)
       taskSpec:
         params:
-        - description: git url to clone
-          name: REPO_URL
+        - name: REPO_URL
           type: string
-        - default: master
-          description: the base git reference of the pull request
-          name: PULL_BASE_REF
+        - name: PULL_BASE_REF
           type: string
-        - description: Docker image tag
-          name: tag
+        - name: IMAGE_TAG
           type: string
-        stepTemplate:
-          name: ""
-          volumeMounts:
-          - name: workspace
-            mountPath: /workspace
         steps:
         - name: git-clone
-          image: alpine/git:v2.30.0
+          image: alpine/git:v2.34.2
           command:
           - /bin/sh
           args:
           - -ce
           - |
-            mkdir -p $HOME;
-            git config --global --add user.name dippynark-bot;
-            git config --global --add user.email lukeaddison785@gmail.com;
-            git config --global credential.helper store;
-            git clone $(inputs.params.REPO_URL) .;
-            echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
-            git checkout $(inputs.params.PULL_BASE_REF);
-            echo checked out PULL_BASE_REF: $(inputs.params.PULL_BASE_REF) to dir: `pwd`
+            git clone $(inputs.params.REPO_URL) .
+            git checkout $(inputs.params.PULL_BASE_REF)
           workingDir: /workspace
-        - name: build-test-release
-          image: dippynark/kfmt-build:v1.0.0
+          volumeMounts:
+          - name: workspace
+            mountPath: /workspace
+        - name: test
+          image: golang:1.18-alpine
           command:
-          - make
-          - build
-          - test
-          - release
+          - /bin/sh
+          args:
+          - -ce
+          - |
+            apk add --update make
+            make test release
           workingDir: /workspace
           volumeMounts:
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
-        # Verify there are no changes
-        - name: git-status
-          image: alpine/git:v2.30.0
-          command:
-          - /bin/sh
-          args:
-          - -ce
-          - |
-            if [ -n "$(git status --porcelain)" ]; then
-              git status --porcelain
-              exit 1
-            fi
-          workingDir: /workspace
-        - name: kaniko-build-push
-          image: gcr.io/kaniko-project/executor:v1.3.0
+        - name: build-push
+          image: gcr.io/kaniko-project/executor:v1.8.1
           args:
           - --dockerfile=Dockerfile
           - --context=dir:///workspace
-          - --destination=dippynark/kfmt:$(inputs.params.tag)
+          - --destination=dippynark/kfmt:$(inputs.params.IMAGE_TAG)
           - --cache
           - --cache-repo=dippynark/kfmt-cache
           volumeMounts:
+          - name: workspace
+            mountPath: /workspace
           - name: kaniko-secret
             mountPath: /kaniko/.docker
         # https://github.com/tektoncd/catalog/blob/master/task/create-github-release/0.1/create-github-release.yaml
-        - name: github-release
-          workingDir: /workspace
+        - name: release
           image: quay.io/diagrawa/github-hub@sha256:a002e05e3c3362f49dc31b8c16c10d76c6dbd854fdb0f596eaae8ac8b792adfb #tag: latest
           env:
           - name: GITHUB_TOKEN
@@ -133,21 +106,21 @@ spec:
             #!/usr/bin/env bash
             set -ex
 
-            if [ "$(inputs.params.tag)" = "latest" ]; then
+            if [ "$(inputs.params.IMAGE_TAG)" = "latest" ]; then
               exit 0
             fi
 
             # Create release title
-            echo -e "$(inputs.params.tag)\n" > release.txt
+            echo -e "$(inputs.params.IMAGE_TAG)\n" > release.txt
 
             # Create release description
             # https://stackoverflow.com/a/40256763/6180803
-            if git describe --tags $(inputs.params.tag)^ >/dev/null 2>&1; then
+            if git describe --tags $(inputs.params.IMAGE_TAG)^ >/dev/null 2>&1; then
               # A previous tag exists so retrieve commit messages between tags
-              git log $(git describe --tags --abbrev=0 $(inputs.params.tag)^)..$(inputs.params.tag) --oneline >> release.txt
+              git log $(git describe --tags --abbrev=0 $(inputs.params.IMAGE_TAG)^)..$(inputs.params.IMAGE_TAG) --oneline >> release.txt
             else
               # No previous tag exists so retrieve all commit messages before tag
-              git log $(inputs.params.tag) --oneline >> release.txt
+              git log $(inputs.params.IMAGE_TAG) --oneline >> release.txt
             fi
 
             # Creating release
@@ -158,7 +131,11 @@ spec:
               --attach bin/kfmt-darwin-arm64 \
               --attach bin/kfmt-linux-amd64 \
               --attach bin/kfmt-windows-amd64.exe \
-              $(inputs.params.tag)
+              $(inputs.params.IMAGE_TAG)
+          workingDir: /workspace
+          volumeMounts:
+          - name: workspace
+            mountPath: /workspace
         volumes:
         - name: workspace
           emptyDir: {}

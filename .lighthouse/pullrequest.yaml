@@ -31,7 +31,6 @@ spec:
           args:
           - -ce
           - |
-            mkdir -p $HOME;
             git clone $(inputs.params.REPO_URL) .
             git config --unset-all remote.origin.fetch
             # https://gist.github.com/piscisaureus/3342247

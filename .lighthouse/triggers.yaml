@@ -9,5 +9,5 @@ spec:
   - name: release
     source: release.yaml
     branches:
-    - master
+    - main
     - ^v\d+\.\d+\.\d+$
