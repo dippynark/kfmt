@@ -6,15 +6,12 @@ spec:
   serviceAccountName: tekton-bot
   pipelineSpec:
     params:
-    - description: git url to clone
-      name: REPO_URL
+    - name: REPO_URL
       type: string
-    - default: master
-      description: git revision to checkout (branch, tag, sha, ref…)
-      name: PULL_NUMBER
+    - name: PULL_NUMBER
       type: string
     tasks:
-    - name: clone-build-test
+    - name: git-clone-test
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -22,62 +19,39 @@ spec:
         value: $(params.PULL_NUMBER)
       taskSpec:
         params:
-        - description: git url to clone
-          name: REPO_URL
+        - name: REPO_URL
           type: string
-        - default: master
-          description: git revision to checkout (branch, tag, sha, ref…)
-          name: PULL_NUMBER
+        - name: PULL_NUMBER
           type: string
-        stepTemplate:
-          name: ""
-          volumeMounts:
-          - name: workspace
-            mountPath: /workspace
         steps:
         - name: git-clone
-          image: alpine/git:v2.30.0
+          image: alpine/git:v2.34.2
           command:
           - /bin/sh
           args:
           - -ce
           - |
             mkdir -p $HOME;
-            git config --global --add user.name dippynark-bot;
-            git config --global --add user.email lukeaddison785@gmail.com;
-            git config --global credential.helper store;
-            git clone $(inputs.params.REPO_URL) .;
-            echo cloned url: $(inputs.params.REPO_URL) to dir: `pwd`;
+            git clone $(inputs.params.REPO_URL) .
             git config --unset-all remote.origin.fetch
             # https://gist.github.com/piscisaureus/3342247
             git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
             git fetch origin
-            git merge origin/pr/$(inputs.params.PULL_NUMBER);
-            echo merged PR $(inputs.params.PULL_NUMBER) into master
+            git merge origin/pr/$(inputs.params.PULL_NUMBER)
           workingDir: /workspace
-        - name: build-test
-          image: dippynark/kfmt-build:v1.0.0
-          command:
-          - make
-          - build
-          - test
-          workingDir: /workspace
-          volumeMounts:
-          - name: go-pkg-mod
-            mountPath: /go/pkg/mod
-        # Verify there are no changes
-        - name: git-status
-          image: alpine/git:v2.30.0
+        - name: test
+          image: golang:1.18-alpine
           command:
           - /bin/sh
           args:
           - -ce
           - |
-            if [ -n "$(git status --porcelain)" ]; then
-              git status --porcelain
-              exit 1
-            fi
+            apk add --update make
+            make test
           workingDir: /workspace
+          volumeMounts:
+          - name: go-pkg-mod
+            mountPath: /go/pkg/mod
         volumes:
         - name: workspace
           emptyDir: {}
