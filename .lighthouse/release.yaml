@@ -37,7 +37,7 @@ spec:
               IMAGE_TAG="latest"
             fi
             echo -n $IMAGE_TAG > $(results.IMAGE_TAG.path)
-    - name: git-clone-test-build-push-release
+    - name: git-clone-test-build-release
       params:
       - name: REPO_URL
         value: $(params.REPO_URL)
@@ -82,7 +82,7 @@ spec:
             mountPath: /workspace
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
-        - name: build-push
+        - name: kaniko-build
           image: gcr.io/kaniko-project/executor:v1.8.1
           command:
           - /kaniko/executor
