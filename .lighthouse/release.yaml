@@ -94,8 +94,6 @@ spec:
           volumeMounts:
           - name: workspace
             mountPath: /workspace
-          - name: kaniko-secret
-            mountPath: /kaniko/.docker
         - name: release
           image: golang:1.18-alpine
           command:
@@ -163,9 +161,3 @@ spec:
         - name: go-pkg-mod
           hostPath:
             path: /mnt/ssd/data/go/pkg/mod
-        - name: kaniko-secret
-          secret:
-            secretName: tekton-container-registry-auth
-            items:
-            - key: .dockerconfigjson
-              path: config.json
