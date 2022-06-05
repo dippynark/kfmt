@@ -19,12 +19,12 @@ generate:
 	go fmt pkg/discovery/local_discovery.go
 
 build:
-	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS)
+	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS) ./cmd/kfmt
 
 release:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS) ./cmd/kfmt
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS) ./cmd/kfmt
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS) ./cmd/kfmt
 	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-windows-amd64.exe > checksums.txt
 
 test: go_test e2e_test

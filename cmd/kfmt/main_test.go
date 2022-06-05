@@ -5,7 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dippynark/kfmt/discovery"
+	"github.com/dippynark/kfmt/pkg/discovery"
+	"github.com/dippynark/kfmt/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/kio"
@@ -115,7 +116,7 @@ metadata:
 		t.Error(err)
 	}
 
-	secretNamespace, err := getNamespace(yamlFileNodes[os.Stdin.Name()][0])
+	secretNamespace, err := utils.GetNamespace(yamlFileNodes[os.Stdin.Name()][0])
 	if err != nil {
 		t.Error(err)
 	}
@@ -124,7 +125,7 @@ metadata:
 		t.Error("failed to default Secret Namespace")
 	}
 
-	clusterRoleNamespace, err := getNamespace(yamlFileNodes[os.Stdin.Name()][1])
+	clusterRoleNamespace, err := utils.GetNamespace(yamlFileNodes[os.Stdin.Name()][1])
 	if err != nil {
 		t.Error(err)
 	}
