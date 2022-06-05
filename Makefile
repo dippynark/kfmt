@@ -26,11 +26,9 @@ release:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-windows-amd64.exe $(BUILD_FLAGS) ./cmd/kfmt
 	cd $(BIN_DIR) && sha256sum kfmt-linux-amd64 kfmt-darwin-amd64 kfmt-windows-amd64.exe > checksums.txt
 
-test: go_test e2e_test
-
-go_test:
+test:
 	# https://github.com/golang/go/issues/28065#issuecomment-725632025
-	CGO_ENABLED=0 go test -v
+	CGO_ENABLED=0 go test -v ./...
 
 e2e_test:
 	rm -rf $(OUTPUT_DIR)
