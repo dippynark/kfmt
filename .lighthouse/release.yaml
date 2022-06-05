@@ -78,6 +78,8 @@ spec:
             make test release
           workingDir: /workspace
           volumeMounts:
+          - name: workspace
+            mountPath: /workspace
           - name: go-pkg-mod
             mountPath: /go/pkg/mod
         - name: build-push
