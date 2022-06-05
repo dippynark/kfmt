@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dippynark/kfmt/discovery"
+	"github.com/dippynark/kfmt/pkg/discovery"
+	"github.com/dippynark/kfmt/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -345,12 +346,12 @@ func (o *Options) defaultNamespaces(yamlFileNodes map[string][]*yaml.RNode, reso
 		newNodes := []*yaml.RNode{}
 		for _, node := range nodes {
 
-			namespace, err := getNamespace(node)
+			namespace, err := utils.GetNamespace(node)
 			if err != nil {
 				return errors.Wrap(err, "failed to get namespace")
 			}
 
-			gvk, err := getGVK(node)
+			gvk, err := utils.GetGVK(node)
 			if err != nil {
 				return err
 			}
@@ -401,7 +402,7 @@ func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 		newNodes := []*yaml.RNode{}
 		for _, node := range nodes {
 
-			gvk, err := getGVK(node)
+			gvk, err := utils.GetGVK(node)
 			if err != nil {
 				return err
 			}
@@ -412,7 +413,7 @@ func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 			}
 
 			if isNamespaced {
-				originalNamespace, err := getNamespace(node)
+				originalNamespace, err := utils.GetNamespace(node)
 				if err != nil {
 					return errors.Wrap(err, "failed to get namespace")
 				}
@@ -420,7 +421,7 @@ func (o *Options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 					return errors.New("failed to get namespace")
 				}
 
-				annotations, err := getAnnotations(node)
+				annotations, err := utils.GetAnnotations(node)
 				if err != nil {
 					return err
 				}
@@ -548,7 +549,7 @@ metadata:
 func (o *Options) getOutputFile(node *yaml.RNode, resourceInspector discovery.ResourceInspector) (string, error) {
 	var outputFile string
 
-	gvk, err := getGVK(node)
+	gvk, err := utils.GetGVK(node)
 	if err != nil {
 		return outputFile, err
 	}
@@ -558,13 +559,13 @@ func (o *Options) getOutputFile(node *yaml.RNode, resourceInspector discovery.Re
 		return outputFile, err
 	}
 
-	name, err := getName(node)
+	name, err := utils.GetName(node)
 	if err != nil {
 		return outputFile, errors.Wrap(err, "failed to get name")
 	}
 
 	if isNamespaced {
-		namespace, err := getNamespace(node)
+		namespace, err := utils.GetNamespace(node)
 		if err != nil || namespace == "" {
 			return outputFile, errors.Wrap(err, "failed to get namespace")
 		}
@@ -600,7 +601,7 @@ func (o *Options) isClashing(candidateNode *yaml.RNode, yamlFileNodes map[string
 }
 
 func (o *Options) isFiltered(node *yaml.RNode) (bool, error) {
-	gvk, err := getGVK(node)
+	gvk, err := utils.GetGVK(node)
 	if err != nil {
 		return false, err
 	}
@@ -620,13 +621,13 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 	// Look for namespaces in each manifest
 	for _, node := range nodes {
 
-		kind, err := getKind(node)
+		kind, err := utils.GetKind(node)
 		if err != nil {
 			return namespaces, errors.Wrap(err, "failed to get kind")
 		}
 
 		if kind == "Namespace" {
-			name, err := getName(node)
+			name, err := utils.GetName(node)
 			if err != nil {
 				return namespaces, err
 			}
@@ -634,7 +635,7 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 			namespaces[name] = struct{}{}
 		} else {
 
-			apiVersion, err := getAPIVersion(node)
+			apiVersion, err := utils.GetAPIVersion(node)
 			if err != nil {
 				return namespaces, errors.Wrap(err, "failed to get apiVersion")
 			}
@@ -659,7 +660,7 @@ func (o *Options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 			}
 
 			if isNamespaced {
-				namespace, err := getNamespace(node)
+				namespace, err := utils.GetNamespace(node)
 				if err != nil {
 					return namespaces, err
 				}
@@ -708,7 +709,7 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 	// Look for a resource definition in each manifest
 	for _, node := range nodes {
 
-		kind, err := getKind(node)
+		kind, err := utils.GetKind(node)
 		if err != nil {
 			return resources, err
 		}
@@ -717,17 +718,17 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 			continue
 		}
 
-		resourceGroup, err := getCRDGroup(node)
+		resourceGroup, err := utils.GetCRDGroup(node)
 		if err != nil {
 			return resources, err
 		}
 
-		resourceKind, err := getCRDKind(node)
+		resourceKind, err := utils.GetCRDKind(node)
 		if err != nil {
 			return resources, err
 		}
 
-		resourceScope, err := getCRDScope(node)
+		resourceScope, err := utils.GetCRDScope(node)
 		if err != nil {
 			return resources, err
 		}
@@ -736,7 +737,7 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 			namespaced = true
 		}
 
-		resourceVersions, err := getCRDVersions(node)
+		resourceVersions, err := utils.GetCRDVersions(node)
 		if err != nil {
 			return resources, err
 		}
@@ -789,10 +790,10 @@ func (o *Options) writeManifest(inputFile string, outputFile string, node *yaml.
 }
 
 func (o *Options) getNonNamespacedOutputFile(name string, gvk schema.GroupVersionKind, resourceInspector discovery.ResourceInspector) string {
-	subdirectory := pluralise(strings.ToLower(gvk.Kind))
+	subdirectory := utils.Pluralise(strings.ToLower(gvk.Kind))
 	// Prefix with group if not core
 	if !resourceInspector.IsCoreGroup(gvk.Group) {
-		subdirectory = pluralise(strings.ToLower(gvk.Kind)) + "." + gvk.Group
+		subdirectory = utils.Pluralise(strings.ToLower(gvk.Kind)) + "." + gvk.Group
 	}
 	return filepath.Join(o.output, nonNamespacedDirectory, subdirectory, name+".yaml")
 }

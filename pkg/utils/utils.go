@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 
 var quotes = []string{"'", "\""}
 
-func getAnnotations(node *yaml.RNode) (map[string]string, error) {
+func GetAnnotations(node *yaml.RNode) (map[string]string, error) {
 	annotations := map[string]string{}
 
 	valueNode, err := node.Pipe(yaml.Lookup("metadata", "annotations"))
@@ -31,8 +31,8 @@ func getAnnotations(node *yaml.RNode) (map[string]string, error) {
 	return annotations, nil
 }
 
-func getNamespace(node *yaml.RNode) (string, error) {
-	namespace, err := getStringField(node, "metadata", "namespace")
+func GetNamespace(node *yaml.RNode) (string, error) {
+	namespace, err := GetStringField(node, "metadata", "namespace")
 	if err != nil {
 		return "", err
 	}
@@ -40,8 +40,8 @@ func getNamespace(node *yaml.RNode) (string, error) {
 	return namespace, nil
 }
 
-func getName(node *yaml.RNode) (string, error) {
-	name, err := getStringField(node, "metadata", "name")
+func GetName(node *yaml.RNode) (string, error) {
+	name, err := GetStringField(node, "metadata", "name")
 	if err != nil {
 		return "", err
 	}
@@ -53,8 +53,8 @@ func getName(node *yaml.RNode) (string, error) {
 	return name, nil
 }
 
-func getKind(node *yaml.RNode) (string, error) {
-	kind, err := getStringField(node, "kind")
+func GetKind(node *yaml.RNode) (string, error) {
+	kind, err := GetStringField(node, "kind")
 	if err != nil {
 		return "", err
 	}
@@ -66,8 +66,8 @@ func getKind(node *yaml.RNode) (string, error) {
 	return kind, nil
 }
 
-func getAPIVersion(node *yaml.RNode) (string, error) {
-	kind, err := getStringField(node, "apiVersion")
+func GetAPIVersion(node *yaml.RNode) (string, error) {
+	kind, err := GetStringField(node, "apiVersion")
 	if err != nil {
 		return "", err
 	}
@@ -79,8 +79,8 @@ func getAPIVersion(node *yaml.RNode) (string, error) {
 	return kind, nil
 }
 
-func getCRDGroup(node *yaml.RNode) (string, error) {
-	group, err := getStringField(node, "spec", "group")
+func GetCRDGroup(node *yaml.RNode) (string, error) {
+	group, err := GetStringField(node, "spec", "group")
 	if err != nil {
 		return "", err
 	}
@@ -92,8 +92,8 @@ func getCRDGroup(node *yaml.RNode) (string, error) {
 	return group, nil
 }
 
-func getCRDKind(node *yaml.RNode) (string, error) {
-	kind, err := getStringField(node, "spec", "names", "kind")
+func GetCRDKind(node *yaml.RNode) (string, error) {
+	kind, err := GetStringField(node, "spec", "names", "kind")
 	if err != nil {
 		return "", err
 	}
@@ -105,8 +105,8 @@ func getCRDKind(node *yaml.RNode) (string, error) {
 	return kind, nil
 }
 
-func getCRDScope(node *yaml.RNode) (string, error) {
-	scope, err := getStringField(node, "spec", "scope")
+func GetCRDScope(node *yaml.RNode) (string, error) {
+	scope, err := GetStringField(node, "spec", "scope")
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +118,7 @@ func getCRDScope(node *yaml.RNode) (string, error) {
 	return scope, nil
 }
 
-func getCRDVersions(node *yaml.RNode) ([]string, error) {
+func GetCRDVersions(node *yaml.RNode) ([]string, error) {
 	valueNode, err := node.Pipe(yaml.Lookup("spec", "versions"))
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func getCRDVersions(node *yaml.RNode) ([]string, error) {
 		return versions, nil
 	}
 
-	version, err := getStringField(node, "spec", "version")
+	version, err := GetStringField(node, "spec", "version")
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func getCRDVersions(node *yaml.RNode) ([]string, error) {
 	return []string{version}, nil
 }
 
-func getStringField(node *yaml.RNode, fields ...string) (string, error) {
+func GetStringField(node *yaml.RNode, fields ...string) (string, error) {
 
 	valueNode, err := node.Pipe(yaml.Lookup(fields...))
 	if err != nil {
@@ -172,7 +172,7 @@ func trimSpaceAndQuotes(value string) string {
 	return text
 }
 
-func pluralise(lowercaseKind string) string {
+func Pluralise(lowercaseKind string) string {
 
 	// e.g. ingress
 	if strings.HasSuffix(lowercaseKind, "s") {
@@ -186,7 +186,7 @@ func pluralise(lowercaseKind string) string {
 	return lowercaseKind + "s"
 }
 
-func isWhitespaceOrComments(input string) bool {
+func IsWhitespaceOrComments(input string) bool {
 	lines := strings.Split(input, "\n")
 	for _, line := range lines {
 		t := strings.TrimSpace(line)
@@ -197,13 +197,13 @@ func isWhitespaceOrComments(input string) bool {
 	return true
 }
 
-func getGVK(node *yaml.RNode) (gvk schema.GroupVersionKind, err error) {
-	apiVersion, err := getAPIVersion(node)
+func GetGVK(node *yaml.RNode) (gvk schema.GroupVersionKind, err error) {
+	apiVersion, err := GetAPIVersion(node)
 	if err != nil {
 		return gvk, errors.Wrap(err, "failed to get apiVersion")
 	}
 
-	kind, err := getKind(node)
+	kind, err := GetKind(node)
 	if err != nil {
 		return gvk, errors.Wrap(err, "failed to get kind")
 	}

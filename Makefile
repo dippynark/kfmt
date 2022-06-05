@@ -5,6 +5,7 @@ INPUT_DIR = input
 OUTPUT_DIR = output
 K8S_DIR = k8s.io
 WORK_DIR = /workspace
+GOPATH ?= $(HOME)/go
 
 VERSION = $(shell git describe --tags)
 BUILD_FLAGS = -tags netgo -ldflags "-X main.version=$(VERSION)"
@@ -14,8 +15,8 @@ generate:
 	ls $(K8S_DIR)/api || git clone https://github.com/kubernetes/api $(K8S_DIR)/api
 	ls $(K8S_DIR)/kube-aggregator || git clone https://github.com/kubernetes/kube-aggregator $(K8S_DIR)/kube-aggregator
 	ls $(K8S_DIR)/apiextensions-apiserver || git clone https://github.com/kubernetes/apiextensions-apiserver $(K8S_DIR)/apiextensions-apiserver
-	go run hack/discovery-gen.go -- $(K8S_DIR) discovery/local_discovery.go
-	go fmt discovery/local_discovery.go
+	go run hack/discovery-gen.go -- $(K8S_DIR) pkg/discovery/local_discovery.go
+	go fmt pkg/discovery/local_discovery.go
 
 build:
 	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS)
