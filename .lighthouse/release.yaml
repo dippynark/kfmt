@@ -126,7 +126,7 @@ spec:
             value: /tekton/creds
           script: |
             #!/usr/bin/env bash
-            set -ex
+            set -euo pipefail
 
             if [ "$(inputs.params.PULL_BASE_REF)" = "main" ]; then
               exit 0
