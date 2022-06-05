@@ -101,7 +101,7 @@ metadata:
 	require.Nil(t, err)
 }
 
-func TestNamespaceCreation(t *testing.T) {
+func TestCreateMissingNamespaces(t *testing.T) {
 	// Setup memory backed filesystems
 	input := afero.NewMemMapFs()
 	output := afero.NewMemMapFs()
