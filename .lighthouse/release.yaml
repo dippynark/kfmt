@@ -75,7 +75,7 @@ spec:
           - -ce
           - |
             apk add --update make
-            make test release
+            make test release VERSION=$(params.PULL_BASE_REF)
           workingDir: /workspace
           volumeMounts:
           - name: workspace
@@ -90,6 +90,7 @@ spec:
           - --destination=dippynark/kfmt:$(inputs.params.IMAGE_TAG)
           - --cache
           - --cache-repo=dippynark/kfmt-cache
+          - --build-arg=VERSION=$(params.PULL_BASE_REF)
           volumeMounts:
           - name: workspace
             mountPath: /workspace
