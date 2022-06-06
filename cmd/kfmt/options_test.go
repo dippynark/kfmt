@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -85,14 +86,14 @@ metadata:
 	require.Nil(t, err)
 
 	// Ensure Secret has not been formatted
-	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"))
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"))
 	require.Nil(t, err)
 
 	// Remove filter and ensure Secret is formatted
 	o.filters = []string{}
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"), `---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -128,7 +129,7 @@ metadata:
 	require.Nil(t, err)
 
 	// Ensure tester resource is formatted
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/default/tester.test.io-example.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "default/tester.test.io-example.yaml"), `---
 apiVersion: test.io/v1
 kind: Tester
 metadata:
@@ -141,7 +142,7 @@ metadata:
 	o.gvkScopes = []string{"Tester.test.io/v1:Cluster"}
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "cluster/testers.test.io/example.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, nonNamespacedDirectory, "testers.test.io/example.yaml"), `---
 apiVersion: test.io/v1
 kind: Tester
 metadata:
@@ -198,7 +199,7 @@ spec:
 	o.inputs = append(o.inputs, "crd.yaml")
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/default/tester.test.io-example.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "default/tester.test.io-example.yaml"), `---
 apiVersion: test.io/v1
 kind: Tester
 metadata:
@@ -234,7 +235,7 @@ metadata:
 	require.Nil(t, err)
 
 	// Ensure Secret is formatted
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/test/secret-test.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "test/secret-test.yaml"), `---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -271,7 +272,7 @@ metadata:
 	require.Nil(t, err)
 
 	// Ensure resource is formatted
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "cluster/clusterroles/foo.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, nonNamespacedDirectory, "clusterroles/foo.yaml"), `---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -292,7 +293,7 @@ metadata:
 	require.Nil(t, err)
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "cluster/clusterroles/bar.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, nonNamespacedDirectory, "clusterroles/bar.yaml"), `---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -330,7 +331,7 @@ metadata:
 	o.strict = false
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "cluster/clusterroles/foo.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, nonNamespacedDirectory, "clusterroles/foo.yaml"), `---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -371,7 +372,7 @@ metadata:
 	require.Nil(t, err)
 
 	// Remove formatted resource
-	err = fs.Remove(path.Join(outputDirectory, "namespaces/default/secret-test.yaml"))
+	err = fs.Remove(path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"))
 	require.Nil(t, err)
 
 	// Enable remove and verify input file is removed
@@ -404,7 +405,7 @@ metadata:
 	require.Nil(t, err)
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"), `---
 # Source: input.yaml
 apiVersion: v1
 kind: Secret
@@ -486,7 +487,7 @@ spec:
 	require.Nil(t, err)
 
 	// Ensure nginx namespace is created
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "cluster/namespaces/nginx.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, nonNamespacedDirectory, "namespaces/nginx.yaml"), `---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -517,14 +518,14 @@ metadata:
 	require.Nil(t, err)
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"))
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"))
 	require.Nil(t, err)
 
 	// Disable version
 	o.version = false
 	err = o.run(fs)
 	require.Nil(t, err)
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "default/secret-test.yaml"), `---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -545,14 +546,14 @@ func TestNamespacesAnnotation(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Create input manifests
-	manifests := `
+	manifests := fmt.Sprintf(`
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: pods-high
   namespace: test
   annotations:
-    kfmt.dev/namespaces: "*,-bar"
+    %s: "%s,-bar"
     another: annotation
 spec:
   hard:
@@ -567,14 +568,14 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: bar
-`
+`, annotationNamespacesKey, annotationNamespacesAll)
 	err := afero.WriteFile(fs, "input.yaml", []byte(manifests), 0644)
 	require.Nil(t, err)
 	err = o.run(fs)
 	require.Nil(t, err)
 
 	// Require ResourceQuota exists in the foo Namespace
-	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/foo/resourcequota-pods-high.yaml"), `---
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, namespacedDirectory, "foo/resourcequota-pods-high.yaml"), `---
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -589,29 +590,29 @@ spec:
 	require.Nil(t, err)
 
 	// Require ResourceQuota is missing in the bar Namespace
-	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/bar/resourcequota-pods-high.yaml"))
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, namespacedDirectory, "bar/resourcequota-pods-high.yaml"))
 	require.Nil(t, err)
 
 	// Require ResourceQuota is missing in the default Namespace
-	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/resourcequota-pods-high.yaml"))
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, namespacedDirectory, "default/resourcequota-pods-high.yaml"))
 	require.Nil(t, err)
 
 	// Verify that specifying a missing Namespace causes an error
-	manifests = `
+	manifests = fmt.Sprintf(`
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: pods-high
   annotations:
-    kfmt.dev/namespaces: example
+    %s: example
 spec:
   hard:
     pods: "20"
-`
+`, annotationNamespacesKey)
 	err = afero.WriteFile(fs, "input.yaml", []byte(manifests), 0644)
 	require.Nil(t, err)
 	err = o.run(fs)
-	require.Equal(t, err.Error(), "Namespace \"example\" not found when processing annotation kfmt.dev/namespaces")
+	require.Equal(t, err.Error(), fmt.Sprintf("Namespace \"example\" not found when processing annotation %s", annotationNamespacesKey))
 }
 
 // TODO: Test discovery and kubeconfig
