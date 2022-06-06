@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -37,7 +38,7 @@ func main() {
 		Use:   "kfmt",
 		Short: "kfmt organises Kubernetes manifests into a standard format.",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := o.run()
+			err := o.run(afero.NewOsFs())
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "kfmt: %s\n", err)
 			}

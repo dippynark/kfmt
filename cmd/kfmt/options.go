@@ -35,7 +35,7 @@ type options struct {
 	version                 bool
 }
 
-func (o *options) run() error {
+func (o *options) run(fs afero.Fs) error {
 	// Print version
 	if o.version {
 		fmt.Println(version)
@@ -43,23 +43,10 @@ func (o *options) run() error {
 	}
 
 	// Validate options
-	err := o.validate()
-	if err != nil {
-		return err
-	}
-
-	// Abstract away from the filesystem: https://github.com/spf13/afero
-	return o.format(afero.NewOsFs(), afero.NewBasePathFs(afero.NewOsFs(), o.output))
-}
-
-func (o *options) validate() error {
 	if o.output == "" {
 		return errors.Errorf("output directory not specified")
 	}
-	return nil
-}
 
-func (o *options) format(inputFileSystem afero.Fs, outputFileSystem afero.Fs) error {
 	// Initialise discovery to determine whether resources are namespaced or not
 	resourceInspector, err := o.getResourceInspector()
 	if err != nil {
@@ -67,13 +54,13 @@ func (o *options) format(inputFileSystem afero.Fs, outputFileSystem afero.Fs) er
 	}
 
 	// Find all YAML files specified as input
-	yamlFiles, err := o.findYAMLFiles(inputFileSystem)
+	yamlFiles, err := o.findYAMLFiles(fs)
 	if err != nil {
 		return err
 	}
 
 	// Map input files to nodes (parsed YAML documents)
-	yamlFileNodes, err := o.findYAMLFileNodes(inputFileSystem, yamlFiles)
+	yamlFileNodes, err := o.findYAMLFileNodes(fs, yamlFiles)
 	if err != nil {
 		return err
 	}
@@ -116,19 +103,19 @@ func (o *options) format(inputFileSystem afero.Fs, outputFileSystem afero.Fs) er
 	}
 
 	// Write nodes to disk into output directory
-	err = o.writeManifests(yamlFileNodes, resourceInspector, outputFileSystem)
+	err = o.writeManifests(yamlFileNodes, resourceInspector, fs)
 	if err != nil {
 		return err
 	}
 
 	// Remove processed YAML files
-	err = o.removeYAMLFiles(yamlFileNodes, outputFileSystem)
+	err = o.removeYAMLFiles(yamlFileNodes, fs)
 	if err != nil {
 		return err
 	}
 
 	// Create missing Namespace manifests
-	if err := o.createMissingNamespaceManifests(allNamespaces, outputFileSystem); err != nil {
+	if err := o.createMissingNamespaceManifests(allNamespaces, fs); err != nil {
 		return err
 	}
 
@@ -157,17 +144,17 @@ func (o *options) getResourceInspector() (discovery.ResourceInspector, error) {
 	return resourceInspector, nil
 }
 
-func (o *options) findYAMLFiles(inputFileSystem afero.Fs) ([]string, error) {
+func (o *options) findYAMLFiles(fs afero.Fs) ([]string, error) {
 	var yamlFiles []string
 	if len(o.inputs) > 0 {
 		for _, input := range o.inputs {
-			info, err := inputFileSystem.Stat(input)
+			info, err := fs.Stat(input)
 			if err != nil {
 				return yamlFiles, err
 			}
 			switch mode := info.Mode(); {
 			case mode.IsDir():
-				inputFiles, err := listYAMLFiles(inputFileSystem, input)
+				inputFiles, err := listYAMLFiles(fs, input)
 				if err != nil {
 					return yamlFiles, err
 				}
@@ -183,10 +170,10 @@ func (o *options) findYAMLFiles(inputFileSystem afero.Fs) ([]string, error) {
 	return yamlFiles, nil
 }
 
-func (o *options) findYAMLFileNodes(inputFileSystem afero.Fs, yamlFiles []string) (map[string][]*yaml.RNode, error) {
+func (o *options) findYAMLFileNodes(fs afero.Fs, yamlFiles []string) (map[string][]*yaml.RNode, error) {
 	yamlFileNodes := map[string][]*yaml.RNode{}
 	for _, yamlFile := range yamlFiles {
-		b, err := afero.ReadFile(inputFileSystem, yamlFile)
+		b, err := afero.ReadFile(fs, yamlFile)
 		if err != nil {
 			return yamlFileNodes, err
 		}
@@ -433,7 +420,7 @@ func (o *options) mirrorNodes(yamlFileNodes map[string][]*yaml.RNode, allNamespa
 	return nil
 }
 
-func (o *options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector, outputFilesystem afero.Fs) error {
+func (o *options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourceInspector discovery.ResourceInspector, fs afero.Fs) error {
 	for yamlFile, nodes := range yamlFileNodes {
 		for _, node := range nodes {
 
@@ -442,7 +429,7 @@ func (o *options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourc
 				return err
 			}
 
-			err = o.writeManifest(yamlFile, outputFile, node, outputFilesystem)
+			err = o.writeManifest(yamlFile, outputFile, node, fs)
 			if err != nil {
 				return err
 			}
@@ -451,14 +438,14 @@ func (o *options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourc
 	return nil
 }
 
-func (o *options) removeYAMLFiles(yamlFileNodes map[string][]*yaml.RNode, outputFilesystem afero.Fs) error {
+func (o *options) removeYAMLFiles(yamlFileNodes map[string][]*yaml.RNode, fs afero.Fs) error {
 	if o.remove {
 		for yamlFile := range yamlFileNodes {
 			// Ignore stdin
 			if yamlFile == os.Stdin.Name() {
 				continue
 			}
-			err := outputFilesystem.Remove(yamlFile)
+			err := fs.Remove(yamlFile)
 			if err != nil {
 				return errors.Wrapf(err, "failed to remove input file %s", yamlFile)
 			}
@@ -468,13 +455,13 @@ func (o *options) removeYAMLFiles(yamlFileNodes map[string][]*yaml.RNode, output
 }
 
 // createMissingNamespaceManifests creates missing Namespace manifests
-func (o *options) createMissingNamespaceManifests(allNamespaces map[string]struct{}, outputFilesystem afero.Fs) error {
+func (o *options) createMissingNamespaceManifests(allNamespaces map[string]struct{}, fs afero.Fs) error {
 	if o.createMissingNamespaces {
 		for namespace := range allNamespaces {
 			namespaceFile := filepath.Join(o.output, nonNamespacedDirectory, "namespaces", namespace+".yaml")
 
-			if _, err := outputFilesystem.Stat(namespaceFile); os.IsNotExist(err) {
-				err = outputFilesystem.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
+			if _, err := fs.Stat(namespaceFile); os.IsNotExist(err) {
+				err = fs.MkdirAll(filepath.Dir(namespaceFile), defaultDirectoryPerms)
 				if err != nil {
 					return err
 				}
@@ -484,7 +471,7 @@ kind: Namespace
 metadata:
   name: %s
 `, namespace)
-				err = afero.WriteFile(outputFilesystem, namespaceFile, []byte(namespaceManifest), defaultFilePerms)
+				err = afero.WriteFile(fs, namespaceFile, []byte(namespaceManifest), defaultFilePerms)
 				if err != nil {
 					return err
 				}
@@ -628,10 +615,10 @@ func (o *options) findNamespaces(nodes []*yaml.RNode, resourceInspector discover
 }
 
 // listYAMLFiles lists YAML files to be processed
-func listYAMLFiles(inputFileSystem afero.Fs, inputDir string) ([]string, error) {
+func listYAMLFiles(fs afero.Fs, inputDir string) ([]string, error) {
 	var files []string
 
-	err := afero.Walk(inputFileSystem, inputDir,
+	err := afero.Walk(fs, inputDir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -707,11 +694,11 @@ func findResources(nodes []*yaml.RNode) (map[schema.GroupVersionKind]bool, error
 	return resources, nil
 }
 
-func (o *options) writeManifest(inputFile string, outputFile string, node *yaml.RNode, outputFilesystem afero.Fs) error {
+func (o *options) writeManifest(inputFile string, outputFile string, node *yaml.RNode, fs afero.Fs) error {
 
 	if !o.overwrite {
 		// https://stackoverflow.com/a/12518877/6180803
-		if _, err := outputFilesystem.Stat(outputFile); err == nil {
+		if _, err := fs.Stat(outputFile); err == nil {
 			return fmt.Errorf("file already exists: %s", outputFile)
 		}
 	}
@@ -721,7 +708,7 @@ func (o *options) writeManifest(inputFile string, outputFile string, node *yaml.
 		return err
 	}
 
-	err = outputFilesystem.MkdirAll(filepath.Dir(outputFile), defaultDirectoryPerms)
+	err = fs.MkdirAll(filepath.Dir(outputFile), defaultDirectoryPerms)
 	if err != nil {
 		return err
 	}
@@ -730,7 +717,7 @@ func (o *options) writeManifest(inputFile string, outputFile string, node *yaml.
 	if o.comment {
 		comment = fmt.Sprintf("# Source: %s\n", inputFile)
 	}
-	err = afero.WriteFile(outputFilesystem, outputFile, []byte(manifestSeparator+comment+s), defaultFilePerms)
+	err = afero.WriteFile(fs, outputFile, []byte(manifestSeparator+comment+s), defaultFilePerms)
 	if err != nil {
 		return err
 	}
