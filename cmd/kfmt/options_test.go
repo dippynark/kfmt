@@ -84,11 +84,11 @@ metadata:
 	err = o.run(fs)
 	require.Nil(t, err)
 
-	// Ensure secret has not been formatted
+	// Ensure Secret has not been formatted
 	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"))
 	require.Nil(t, err)
 
-	// Remove filter and ensure secret is formatted
+	// Remove filter and ensure Secret is formatted
 	o.filters = []string{}
 	err = o.run(fs)
 	require.Nil(t, err)
@@ -233,7 +233,7 @@ metadata:
 	err = o.run(fs)
 	require.Nil(t, err)
 
-	// Ensure secret is formatted
+	// Ensure Secret is formatted
 	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/test/secret-test.yaml"), `---
 apiVersion: v1
 kind: Secret
@@ -518,6 +518,7 @@ metadata:
 	err = o.run(fs)
 	require.Nil(t, err)
 	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/secret-test.yaml"))
+	require.Nil(t, err)
 
 	// Disable version
 	o.version = false
@@ -531,6 +532,86 @@ metadata:
   namespace: default
 `)
 	require.Nil(t, err)
+}
+
+func TestNamespacesAnnotation(t *testing.T) {
+	// Setup options
+	o := &options{
+		inputs: []string{"input.yaml"},
+		output: outputDirectory,
+	}
+
+	// Setup memory backed filesystem
+	fs := afero.NewMemMapFs()
+
+	// Create input manifests
+	manifests := `
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: test
+  annotations:
+    kfmt.dev/namespaces: "*,-bar"
+    another: annotation
+spec:
+  hard:
+    pods: "20"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+`
+	err := afero.WriteFile(fs, "input.yaml", []byte(manifests), 0644)
+	require.Nil(t, err)
+	err = o.run(fs)
+	require.Nil(t, err)
+
+	// Require ResourceQuota exists in the foo Namespace
+	err = requireRegularFileContents(fs, path.Join(outputDirectory, "namespaces/foo/resourcequota-pods-high.yaml"), `---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  namespace: foo
+  annotations:
+    another: annotation
+spec:
+  hard:
+    pods: "20"
+`)
+	require.Nil(t, err)
+
+	// Require ResourceQuota is missing in the bar Namespace
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/bar/resourcequota-pods-high.yaml"))
+	require.Nil(t, err)
+
+	// Require ResourceQuota is missing in the default Namespace
+	err = requireFileIsNotExist(fs, path.Join(outputDirectory, "namespaces/default/resourcequota-pods-high.yaml"))
+	require.Nil(t, err)
+
+	// Verify that specifying a missing Namespace causes an error
+	manifests = `
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+  annotations:
+    kfmt.dev/namespaces: example
+spec:
+  hard:
+    pods: "20"
+`
+	err = afero.WriteFile(fs, "input.yaml", []byte(manifests), 0644)
+	require.Nil(t, err)
+	err = o.run(fs)
+	require.Equal(t, err.Error(), "Namespace \"example\" not found when processing annotation kfmt.dev/namespaces")
 }
 
 // TODO: Test discovery and kubeconfig
