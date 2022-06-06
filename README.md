@@ -51,6 +51,7 @@ The full help text is show below:
 ```text
 kfmt organises Kubernetes manifests into a standard format.
 
+
 Usage:
   kfmt [flags]
 
