@@ -144,3 +144,5 @@ repository could also benefit from kfmt by running it as a final step in CI, tak
 manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
 annotation can also be used to copy policy resources across Namespaces and having a standard format
 may make any changes easier to review.
+
+## PR Test
