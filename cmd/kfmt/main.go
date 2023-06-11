@@ -37,13 +37,10 @@ func main() {
 	cmd := &cobra.Command{
 		Use:   "kfmt",
 		Short: "kfmt organises Kubernetes manifests into a standard format.",
-		Run: func(cmd *cobra.Command, args []string) {
-			err := o.run(afero.NewOsFs())
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "kfmt: %s\n", err)
-			}
-			os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return o.run(afero.NewOsFs())
 		},
+		SilenceUsage: true,
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Print help text")
@@ -70,7 +67,8 @@ func main() {
 	}
 
 	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
+		if err != nil {
+			os.Exit(1)
+		}
 	}
-	os.Exit(0)
 }
