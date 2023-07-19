@@ -426,7 +426,7 @@ func (o *options) writeManifests(yamlFileNodes map[string][]*yaml.RNode, resourc
 
 			outputFile, err := o.getOutputFile(node, resourceInspector)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to get output file for resource in input file %s", yamlFile)
 			}
 
 			err = o.writeManifest(yamlFile, outputFile, node, fs)
