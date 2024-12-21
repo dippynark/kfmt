@@ -22,6 +22,9 @@ test:
 build:
 	CGO_ENABLED=0 go build -o $(BIN_DIR)/kfmt $(BUILD_FLAGS) $(KFMT)
 
+install:
+	CGO_ENABLED=0 go install $(BUILD_FLAGS) $(KFMT)
+
 release:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-linux-amd64 $(BUILD_FLAGS) $(KFMT)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DIR)/kfmt-darwin-amd64 $(BUILD_FLAGS) $(KFMT)
