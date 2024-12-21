@@ -1,7 +1,24 @@
 # kfmt
 
 kfmt takes input files and directories containing Kubernetes manifests and organises them into a
-standard format.
+standard format:
+
+```t
+# Output directory
+output
+|   # Directory containing cluster scoped resources
+├── cluster
+|   |   # Each cluster scoped resource is given a directory named after its plural and group
+│   └── <plural>.<group>
+|       |   # Files are named after the resource name
+│       └── <name>.yaml
+|   # Directory containing namespace scoped resources
+└── namespaces
+    |   # Each Namespace is given its own directory
+    └── <namespace>
+        |   # Files are named after the resource name, kind and group
+        └── <kind>.<group>-<name>.yaml
+```
 
 Inspiration is taken from a number of other tools:
 
@@ -12,6 +29,19 @@ Inspiration is taken from a number of other tools:
   rename](https://github.com/jenkins-x/jx-gitops/blob/master/docs/cmd/jx-gitops_rename.md)
 - [jx gitops helmfile
   move](https://github.com/jenkins-x/jx-gitops/blob/master/docs/cmd/jx-gitops_helmfile_move.md)
+
+## Use Cases
+
+kfmt is useful in any situation where it's beneficial to have a collection of manifests organised
+into a standard format. This could be to tidy up a large collection of manifests or just to make
+them easier to browse.
+
+GitOps tools such as [Flux](https://github.com/fluxcd/flux2) and [Anthos Config
+Management](https://cloud.google.com/anthos/config-management) that sync manifests from a Git
+repository could also benefit from kfmt by running it as a final step in CI, taking in all the
+manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
+annotation can also be used to copy policy resources across Namespaces and having a standard format
+may make any changes easier to review.
 
 ## Installation
 
@@ -106,41 +136,3 @@ kubectl api-versions > api-versions.txt
 In addition, kfmt supports the `--discovery` flag to enable use of the Kubernetes discovery API.
 kfmt will only attempt to use the Kubernetes discovery API if the required discovery information is
 not provided using another method.
-
-## Format
-
-The standard format used by kfmt is as follows:
-
-```text
-# kfmt output directory
-output
-|   # Directory containing non-namespaced resources
-├── cluster
-|   |   # Each non-namespaced resource is given a directory named after its kind and group. The
-|   |   # group is used to prevent clashes between resources with the same kind in different groups
-|   |   # but is omitted for core resources
-│   └── <pluralised-kind>.<group>
-|       |   # Files are named after the resource name
-│       └── <name>.yaml
-|   # Directory containing namespaced resources
-└── namespaces
-    |   # Each Namespace is given its own directory named after its name
-    └── <namespace-name>
-        |   # Files are named after the resource name, kind and group. The group is used to prevent
-        |   # clashes between resources with the same kind and name in different groups but is
-        |   # ommitted for core resouces
-        └── <kind>.<group>-<name>.yaml
-```
-
-## Use Cases
-
-kfmt is useful in any situation where it's beneficial to have a collection of manifests organised
-into a standard format. This could be to tidy up a large collection of manifests or just to make
-them easier to browse.
-
-GitOps tools such as [Flux](https://github.com/fluxcd/flux2) and [Anthos Config
-Management](https://cloud.google.com/anthos/config-management) that sync manifests from a Git
-repository could also benefit from kfmt by running it as a final step in CI, taking in all the
-manifests to be synced and verifying there are no clashes. Using the `kfmt.dev/namespaces`
-annotation can also be used to copy policy resources across Namespaces and having a standard format
-may make any changes easier to review.
